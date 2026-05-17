@@ -49,14 +49,53 @@ const getAppointmentById = async (id) => {
 };
 
 /**
+ * Get appointment by management token
+ * @param {string} token
+ * @param {Object} client
+ * @param {boolean} forUpdate
+ * @returns {Promise<Object|null>}
+ */
+const getAppointmentByManagementToken = async (token, client = pool, forUpdate = false) => {
+    const query = `
+        SELECT * FROM Appointments
+        WHERE management_token = $1
+        ${forUpdate ? 'FOR UPDATE' : ''}
+    `;
+    const { rows } = await client.query(query, [token]);
+    return rows[0] || null;
+};
+
+/**
  * Update appointment status
  * @param {string} id 
  * @param {string} status - 'pending', 'confirmed', 'cancelled'
  * @returns {Promise<Object|null>}
  */
-const updateAppointmentStatus = async (id, status) => {
+const updateAppointmentStatus = async (id, status, client = pool) => {
     const query = 'UPDATE Appointments SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *';
-    const { rows } = await pool.query(query, [status, id]);
+    const { rows } = await client.query(query, [status, id]);
+    return rows[0] || null;
+};
+
+/**
+ * Update appointment date and time
+ * @param {string} id
+ * @param {Object} scheduleData
+ * @param {Object} client
+ * @returns {Promise<Object|null>}
+ */
+const updateAppointmentSchedule = async (id, scheduleData, client = pool) => {
+    const { appointment_date, start_time, end_time } = scheduleData;
+    const query = `
+        UPDATE Appointments
+        SET appointment_date = $1,
+            start_time = $2,
+            end_time = $3,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $4
+        RETURNING *
+    `;
+    const { rows } = await client.query(query, [appointment_date, start_time, end_time, id]);
     return rows[0] || null;
 };
 
@@ -68,8 +107,8 @@ const updateAppointmentStatus = async (id, status) => {
  * @param {string} endTime 
  * @returns {Promise<boolean>}
  */
-const isSlotAvailable = async (barberId, date, startTime, endTime, client = pool) => {
-    const query = `
+const isSlotAvailable = async (barberId, date, startTime, endTime, client = pool, excludeAppointmentId = null) => {
+    let query = `
         SELECT 1 FROM Appointments
         WHERE barber_id = $1
         AND appointment_date = $2
@@ -78,7 +117,14 @@ const isSlotAvailable = async (barberId, date, startTime, endTime, client = pool
             (start_time < $4 AND end_time > $3)
         )
     `;
-    const { rows } = await client.query(query, [barberId, date, startTime, endTime]);
+    const values = [barberId, date, startTime, endTime];
+
+    if (excludeAppointmentId) {
+        values.push(excludeAppointmentId);
+        query += ' AND id <> $5';
+    }
+
+    const { rows } = await client.query(query, values);
     return rows.length === 0;
 };
 
@@ -100,7 +146,19 @@ const lockBarber = async (barberId, client) => {
 const getAppointmentDetails = async (id) => {
     const query = `
         SELECT 
-            a.*,
+            a.id,
+            a.customer_name,
+            a.customer_phone,
+            a.customer_email,
+            a.barber_id,
+            a.service_id,
+            TO_CHAR(a.appointment_date, 'YYYY-MM-DD') AS appointment_date,
+            a.start_time,
+            a.end_time,
+            a.status,
+            a.management_token,
+            a.created_at,
+            a.updated_at,
             b.name as barber_name,
             s.name as service_name,
             s.total_price,
@@ -117,7 +175,9 @@ const getAppointmentDetails = async (id) => {
 module.exports = {
     createAppointment,
     getAppointmentById,
+    getAppointmentByManagementToken,
     updateAppointmentStatus,
+    updateAppointmentSchedule,
     isSlotAvailable,
     lockBarber,
     getAppointmentDetails

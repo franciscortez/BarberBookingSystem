@@ -13,6 +13,7 @@ const app = express();
 const PORT = process.env.PORT;
 
 app.use(cors());
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
 // Routes

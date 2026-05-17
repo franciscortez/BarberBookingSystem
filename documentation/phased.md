@@ -39,21 +39,24 @@ This project is a Barber Booking System designed to allow customers to view avai
   - [x] Create `model/Payment.js`.
 - [x] **Booking Endpoint:**
   - [x] Create `POST /api/appointments` route.
-  - [x] Validate incoming data (customer details, barber, service, time slot).
+  - [x] Validate incoming data (customer details, barber/service pairing, date, and time slot).
+  - [x] Use service data from the database for duration, service name, and downpayment amount instead of trusting client-supplied values.
   - [x] Double-check database to ensure the requested time slot is still available.
   - [x] **Race Condition Fix:** Implemented PostgreSQL Transactions and row-level locking (`SELECT FOR UPDATE`) to guarantee single-booking for the same slot.
-  - [x] Generate a `management_token` (e.g., UUID) for secure unauthenticated management later.
+  - [x] Generate a `management_token` (e.g., UUID) for secure unauthenticated booking management.
   - [x] Insert a new appointment record with status `pending`.
   - [x] Generate an `idempotency_key` (e.g., UUID) and insert a new `Payments` record linked to the appointment.
-  - [x] Call PayMongo API using the `idempotency_key` to prevent duplicate charges and create a Checkout Session for the downpayment amount.
+  - [x] Create a PayMongo Checkout Session for the server-calculated downpayment amount and attach the local payment ID as the reference number.
+  - [x] Mark the payment as `failed` and appointment as `cancelled` when checkout-session initialization fails.
   - [x] Return the PayMongo checkout URL and pending appointment ID to the frontend.
 - [x] **Webhook & Email Integration:**
-  - [x] Setup Email Service (e.g., Nodemailer + Resend/SendGrid) configuration.
+  - [x] Setup SMTP email delivery through Nodemailer.
   - [x] Create `POST /api/payments/webhook` route to receive PayMongo events.
-  - [x] Implement PayMongo signature verification for security.
+  - [x] Preserve the raw webhook body and enforce PayMongo signature verification before processing events.
   - [x] Handle `checkout_session.payment.paid` event: update corresponding `Payments` and `Appointments` status to `confirmed`/`paid`.
-  - [x] **Send Confirmation Email:** Trigger an email to the customer with booking details and a secure "Manage Booking" link containing the `management_token` (`/manage-booking?token=XYZ`).
-  - [x] Handle `payment.failed` event: log and acknowledge (updates to status pending management logic).
+  - [x] Ignore duplicate successful webhook deliveries so confirmation emails are not resent.
+  - [x] **Send Confirmation Email:** Trigger an email to the customer with booking details plus secure `Reschedule` and `Cancel` links containing the `management_token`.
+  - [x] Handle `payment.failed` events by marking the payment as `failed` and cancelling the linked appointment when the payment can be matched.
 
 
 
@@ -87,10 +90,11 @@ This project is a Barber Booking System designed to allow customers to view avai
   - [ ] Create a `SuccessPage` in React to handle the redirect back from PayMongo.
   - [ ] (Optional) Add polling or a "check status" button on the Success Page to verify backend webhook has processed the confirmation.
 - [ ] **Booking Management (Reschedule & Cancel):**
-  - [ ] Create Backend Endpoint `GET /api/appointments/manage?token=XYZ` to fetch booking securely.
-  - [ ] Create Backend Endpoint `POST /api/appointments/reschedule` to update the date/time (validating token & availability).
-  - [ ] Create Backend Endpoint `POST /api/appointments/cancel` to cancel the booking (validating token).
-  - [ ] Create Frontend `ManageBookingPage` to read the token from the URL, fetch booking details, and render Reschedule/Cancel UI.
+  - [x] Create Backend Endpoint `GET /api/appointments/manage?token=XYZ` to fetch confirmed bookings securely.
+  - [x] Create Backend Endpoint `POST /api/appointments/reschedule` to update the date/time with token validation, slot validation, and transaction locking.
+  - [x] Create Backend Endpoint `POST /api/appointments/cancel` to cancel a confirmed booking without refunding the downpayment.
+  - [x] Send reschedule and cancellation confirmation emails after successful management actions.
+  - [ ] Create frontend booking-management screens for secure reschedule and cancellation flows.
 - [ ] **Final Validation & Polish:**
   - [ ] Add loading states to all buttons and API calls.
   - [ ] Implement global error handling (toast notifications for API failures).
@@ -113,4 +117,3 @@ This project is a Barber Booking System designed to allow customers to view avai
     - [x] Edit/Update Barber details.
     - [x] Remove Barber functionality.
   - [ ] Build Service Management section (Add, Edit, Remove services for specific barbers).
-

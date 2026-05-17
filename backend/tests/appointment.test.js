@@ -1,16 +1,33 @@
 const request = require('supertest');
+jest.mock('../utils/emailService', () => ({
+    sendConfirmationEmail: jest.fn(() => Promise.resolve()),
+    sendRescheduleConfirmationEmail: jest.fn(() => Promise.resolve()),
+    sendCancellationConfirmationEmail: jest.fn(() => Promise.resolve())
+}));
+
 const app = require('../index');
 const pool = require('../config/database');
+const {
+    sendConfirmationEmail,
+    sendRescheduleConfirmationEmail,
+    sendCancellationConfirmationEmail
+} = require('../utils/emailService');
+const paymongoConfig = require('../config/paymongo');
 
 describe('Appointment & Payment Integration API Endpoints', () => {
     let testBarberId;
+    let otherBarberId;
     let testServiceId;
     let createdAppointmentId;
+    let createdManagementToken;
 
     beforeAll(async () => {
         // 1. Create a test barber
         const barberRes = await pool.query('INSERT INTO Barbers (name) VALUES ($1) RETURNING id', ['Appointment Test Barber']);
         testBarberId = barberRes.rows[0].id;
+
+        const otherBarberRes = await pool.query('INSERT INTO Barbers (name) VALUES ($1) RETURNING id', ['Other Appointment Test Barber']);
+        otherBarberId = otherBarberRes.rows[0].id;
 
         // 2. Create a test service
         const serviceRes = await pool.query(`
@@ -38,6 +55,7 @@ describe('Appointment & Payment Integration API Endpoints', () => {
     afterAll(async () => {
         // Cleanup test data
         await pool.query('DELETE FROM Barbers WHERE id = $1', [testBarberId]);
+        await pool.query('DELETE FROM Barbers WHERE id = $1', [otherBarberId]);
         // Services, Appointments, and Payments should cascade delete
         
         // Restore global fetch
@@ -53,8 +71,8 @@ describe('Appointment & Payment Integration API Endpoints', () => {
             service_id: testServiceId,
             appointment_date: '2027-01-01',
             start_time: '10:00:00',
-            service_name: 'Test Appointment Service',
-            downpayment_amount: 100
+            service_name: 'Tampered Name',
+            downpayment_amount: 1
         };
 
         const res = await request(app).post('/api/appointments').send(bookingData);
@@ -66,12 +84,19 @@ describe('Appointment & Payment Integration API Endpoints', () => {
         expect(res.body.checkout_url).toBe('https://test.paymongo.com/checkout?id=cs_test_mocked123');
 
         createdAppointmentId = res.body.appointment.id;
+        createdManagementToken = res.body.appointment.management_token;
 
         // Verify that a Payment record was created
         const paymentRes = await pool.query('SELECT * FROM Payments WHERE appointment_id = $1', [createdAppointmentId]);
         expect(paymentRes.rows.length).toBe(1);
         expect(paymentRes.rows[0].status).toBe('pending');
         expect(paymentRes.rows[0].paymongo_checkout_id).toBe('cs_test_mocked123');
+        expect(parseFloat(paymentRes.rows[0].amount)).toBe(100);
+
+        const checkoutRequest = JSON.parse(global.fetch.mock.calls[0][1].body);
+        expect(checkoutRequest.data.attributes.description).toContain('Test Appointment Service');
+        expect(checkoutRequest.data.attributes.line_items[0].amount).toBe(10000);
+        expect(checkoutRequest.data.attributes.reference_number).toBe(paymentRes.rows[0].id);
     });
 
     it('POST /api/appointments should return 409 for overlapping slots', async () => {
@@ -93,6 +118,67 @@ describe('Appointment & Payment Integration API Endpoints', () => {
         expect(res.body.error).toBe('The requested time slot is no longer available');
     });
 
+    it('POST /api/appointments should reject services that do not belong to the selected barber', async () => {
+        const res = await request(app).post('/api/appointments').send({
+            customer_name: 'Wrong Barber',
+            customer_phone: '09123456789',
+            customer_email: 'wrong@example.com',
+            barber_id: otherBarberId,
+            service_id: testServiceId,
+            appointment_date: '2027-01-02',
+            start_time: '10:00:00'
+        });
+
+        expect(res.statusCode).toEqual(400);
+        expect(res.body.error).toBe('Service does not belong to the selected barber');
+    });
+
+    it('POST /api/appointments should reject malformed appointment times', async () => {
+        const res = await request(app).post('/api/appointments').send({
+            customer_name: 'Invalid Time',
+            customer_phone: '09123456789',
+            customer_email: 'invalid@example.com',
+            barber_id: testBarberId,
+            service_id: testServiceId,
+            appointment_date: '2027-01-02',
+            start_time: 'not-a-time'
+        });
+
+        expect(res.statusCode).toEqual(400);
+        expect(res.body.error).toBe('Invalid appointment date or start time');
+    });
+
+    it('POST /api/appointments should cancel the appointment if checkout creation fails', async () => {
+        global.fetch.mockImplementationOnce(() =>
+            Promise.resolve({
+                ok: false,
+                json: () => Promise.resolve({ errors: [{ detail: 'gateway unavailable' }] })
+            })
+        );
+
+        const res = await request(app).post('/api/appointments').send({
+            customer_name: 'Checkout Failure',
+            customer_phone: '09123456789',
+            customer_email: 'failure@example.com',
+            barber_id: testBarberId,
+            service_id: testServiceId,
+            appointment_date: '2027-01-03',
+            start_time: '10:00:00'
+        });
+
+        expect(res.statusCode).toEqual(502);
+
+        const appointmentRes = await pool.query(`
+            SELECT a.status, p.status AS payment_status
+            FROM Appointments a
+            JOIN Payments p ON p.appointment_id = a.id
+            WHERE a.customer_email = $1
+        `, ['failure@example.com']);
+
+        expect(appointmentRes.rows[0].status).toBe('cancelled');
+        expect(appointmentRes.rows[0].payment_status).toBe('failed');
+    });
+
     it('POST /api/payments/webhook should process successful payment event', async () => {
         const webhookPayload = {
             data: {
@@ -110,22 +196,19 @@ describe('Appointment & Payment Integration API Endpoints', () => {
             }
         };
 
-        // For testing, we might need to mock crypto or ensure the validation allows test env bypass, 
-        // but the controller handles non-production missing signature by just logging a warning and proceeding (if implemented that way).
-        // Let's send the expected signature to pass verification.
         const crypto = require('crypto');
         const timestamp = Math.floor(Date.now() / 1000);
-        const webhookSecret = process.env.PAYMONGO_WEBHOOK_SECRET || 'test_secret';
-        process.env.PAYMONGO_WEBHOOK_SECRET = webhookSecret;
-        
-        const payloadStr = timestamp + '.' + JSON.stringify(webhookPayload);
+        const payloadBody = JSON.stringify(webhookPayload);
+        const webhookSecret = paymongoConfig.webhookSecret;
+        const payloadStr = timestamp + '.' + payloadBody;
         const signature = crypto.createHmac('sha256', webhookSecret).update(payloadStr).digest('hex');
         const signatureHeader = `t=${timestamp},te=${signature},li=`;
 
         const res = await request(app)
             .post('/api/payments/webhook')
             .set('paymongo-signature', signatureHeader)
-            .send(webhookPayload);
+            .set('Content-Type', 'application/json')
+            .send(payloadBody);
         
         expect(res.statusCode).toEqual(200);
 
@@ -136,9 +219,160 @@ describe('Appointment & Payment Integration API Endpoints', () => {
         const paymentRes = await pool.query('SELECT status, paymongo_payment_id FROM Payments WHERE appointment_id = $1', [createdAppointmentId]);
         expect(paymentRes.rows[0].status).toBe('paid');
         expect(paymentRes.rows[0].paymongo_payment_id).toBe('pay_test123');
+        expect(sendConfirmationEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('POST /api/payments/webhook should ignore duplicate successful payment events', async () => {
+        const webhookPayload = {
+            data: {
+                id: 'evt_test_duplicate',
+                attributes: {
+                    type: 'checkout_session.payment.paid',
+                    data: {
+                        id: 'cs_test_mocked123',
+                        type: 'checkout_session',
+                        attributes: {
+                            payments: [{ id: 'pay_test123' }]
+                        }
+                    }
+                }
+            }
+        };
+
+        const crypto = require('crypto');
+        const timestamp = Math.floor(Date.now() / 1000);
+        const payloadBody = JSON.stringify(webhookPayload);
+        const payloadStr = timestamp + '.' + payloadBody;
+        const signature = crypto.createHmac('sha256', paymongoConfig.webhookSecret).update(payloadStr).digest('hex');
+
+        const res = await request(app)
+            .post('/api/payments/webhook')
+            .set('paymongo-signature', `t=${timestamp},te=${signature},li=`)
+            .set('Content-Type', 'application/json')
+            .send(payloadBody);
+
+        expect(res.statusCode).toEqual(200);
+        expect(sendConfirmationEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('GET /api/appointments/manage should return confirmed booking details by token', async () => {
+        const res = await request(app)
+            .get('/api/appointments/manage')
+            .query({ token: createdManagementToken });
+
+        expect(res.statusCode).toEqual(200);
+        expect(res.body.id).toBe(createdAppointmentId);
+        expect(res.body.status).toBe('confirmed');
+        expect(res.body.service_name).toBe('Test Appointment Service');
+    });
+
+    it('POST /api/appointments/reschedule should move a confirmed booking and send email', async () => {
+        const res = await request(app)
+            .post('/api/appointments/reschedule')
+            .send({
+                token: createdManagementToken,
+                appointment_date: '2027-01-02',
+                start_time: '11:00:00'
+            });
+
+        expect(res.statusCode).toEqual(200);
+        expect(res.body.message).toBe('Appointment rescheduled successfully');
+        expect(res.body.appointment.appointment_date).toMatch(/^2027-01-02/);
+        expect(res.body.appointment.start_time).toBe('11:00:00');
+        expect(res.body.appointment.end_time).toBe('11:30:00');
+        expect(sendRescheduleConfirmationEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('POST /api/appointments/reschedule should ignore the booking itself in overlap checks', async () => {
+        const res = await request(app)
+            .post('/api/appointments/reschedule')
+            .send({
+                token: createdManagementToken,
+                appointment_date: '2027-01-02',
+                start_time: '11:00:00'
+            });
+
+        expect(res.statusCode).toEqual(200);
+        expect(sendRescheduleConfirmationEmail).toHaveBeenCalledTimes(2);
+    });
+
+    it('POST /api/appointments/reschedule should reject occupied slots', async () => {
+        await pool.query(`
+            INSERT INTO Appointments
+            (customer_name, customer_phone, customer_email, barber_id, service_id, appointment_date, start_time, end_time, status, management_token)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `, ['Conflict Cust', '09123', 'conflict@test.com', testBarberId, testServiceId, '2027-01-02', '12:00:00', '12:30:00', 'confirmed', '550e8400-e29b-41d4-a716-446655440010']);
+
+        const res = await request(app)
+            .post('/api/appointments/reschedule')
+            .send({
+                token: createdManagementToken,
+                appointment_date: '2027-01-02',
+                start_time: '12:00:00'
+            });
+
+        expect(res.statusCode).toEqual(409);
+        expect(res.body.error).toBe('The requested time slot is no longer available');
+    });
+
+    it('POST /api/appointments/cancel should cancel without refunding the paid down payment', async () => {
+        const res = await request(app)
+            .post('/api/appointments/cancel')
+            .send({ token: createdManagementToken });
+
+        expect(res.statusCode).toEqual(200);
+        expect(res.body.message).toBe('Appointment cancelled successfully. Down payment is not refunded.');
+        expect(res.body.appointment.status).toBe('cancelled');
+        expect(sendCancellationConfirmationEmail).toHaveBeenCalledTimes(1);
+
+        const paymentRes = await pool.query('SELECT status FROM Payments WHERE appointment_id = $1', [createdAppointmentId]);
+        expect(paymentRes.rows[0].status).toBe('paid');
+    });
+
+    it('GET /api/appointments/manage should reject cancelled bookings', async () => {
+        const res = await request(app)
+            .get('/api/appointments/manage')
+            .query({ token: createdManagementToken });
+
+        expect(res.statusCode).toEqual(409);
+        expect(res.body.error).toBe('Only confirmed appointments can be managed');
+    });
+
+    it('POST /api/payments/webhook should reject invalid signatures', async () => {
+        const res = await request(app)
+            .post('/api/payments/webhook')
+            .set('paymongo-signature', 't=123,te=invalid,li=')
+            .set('Content-Type', 'application/json')
+            .send(JSON.stringify({ data: {} }));
+
+        expect(res.statusCode).toEqual(400);
+        expect(res.body.error).toBe('Invalid webhook signature');
+    });
+
+    it('POST /api/payments/webhook should reject missing signatures', async () => {
+        const res = await request(app)
+            .post('/api/payments/webhook')
+            .set('Content-Type', 'application/json')
+            .send(JSON.stringify({ data: {} }));
+
+        expect(res.statusCode).toEqual(400);
+        expect(res.body.error).toBe('Missing PayMongo signature header');
     });
 
     it('POST /api/payments/webhook should handle payment.failed event', async () => {
+        const failedAppointmentRes = await pool.query(`
+            INSERT INTO Appointments
+            (customer_name, customer_phone, customer_email, barber_id, service_id, appointment_date, start_time, end_time, status, management_token)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            RETURNING id
+        `, ['Failed Cust', '09123', 'failed@test.com', testBarberId, testServiceId, '2027-01-04', '10:00:00', '10:30:00', 'pending', '550e8400-e29b-41d4-a716-446655440001']);
+
+        const failedPaymentRes = await pool.query(`
+            INSERT INTO Payments (appointment_id, amount, idempotency_key)
+            VALUES ($1, $2, $3)
+            RETURNING id
+        `, [failedAppointmentRes.rows[0].id, 100, '550e8400-e29b-41d4-a716-446655440002']);
+
         const webhookPayload = {
             data: {
                 id: 'evt_test_failed',
@@ -149,7 +383,8 @@ describe('Appointment & Payment Integration API Endpoints', () => {
                         type: 'payment',
                         attributes: {
                             amount: 10000,
-                            status: 'failed'
+                            status: 'failed',
+                            external_reference_number: failedPaymentRes.rows[0].id
                         }
                     }
                 }
@@ -158,19 +393,24 @@ describe('Appointment & Payment Integration API Endpoints', () => {
 
         const crypto = require('crypto');
         const timestamp = Math.floor(Date.now() / 1000);
-        const webhookSecret = process.env.PAYMONGO_WEBHOOK_SECRET || 'test_secret';
-        
-        const payloadStr = timestamp + '.' + JSON.stringify(webhookPayload);
-        const signature = crypto.createHmac('sha256', webhookSecret).update(payloadStr).digest('hex');
+        const payloadBody = JSON.stringify(webhookPayload);
+        const payloadStr = timestamp + '.' + payloadBody;
+        const signature = crypto.createHmac('sha256', paymongoConfig.webhookSecret).update(payloadStr).digest('hex');
         const signatureHeader = `t=${timestamp},te=${signature},li=`;
 
         const res = await request(app)
             .post('/api/payments/webhook')
             .set('paymongo-signature', signatureHeader)
-            .send(webhookPayload);
+            .set('Content-Type', 'application/json')
+            .send(payloadBody);
         
         expect(res.statusCode).toEqual(200);
-        // The controller currently just logs for payment.failed, but we verify the endpoint responds with 200
+
+        const appointmentRes = await pool.query('SELECT status FROM Appointments WHERE id = $1', [failedAppointmentRes.rows[0].id]);
+        expect(appointmentRes.rows[0].status).toBe('cancelled');
+
+        const paymentRes = await pool.query('SELECT status, paymongo_payment_id FROM Payments WHERE id = $1', [failedPaymentRes.rows[0].id]);
+        expect(paymentRes.rows[0].status).toBe('failed');
+        expect(paymentRes.rows[0].paymongo_payment_id).toBe('pay_test_failed');
     });
 });
-
