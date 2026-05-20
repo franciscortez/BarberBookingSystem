@@ -1,32 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Scissors, Calendar, ShieldCheck, Clock, Star, ArrowRight } from 'lucide-react';
-import { getBarbers, getServices } from '../services/api';
+import { getCatalog } from '../services/api';
 import type { Barber, Service } from '../types';
+import { preloadBookingRoute } from '../routes/lazyRoutes';
 
 // Helper to enrich database barbers with premium details
 const getBarberVisuals = (name: string) => {
   const lowercaseName = name.toLowerCase();
-  if (lowercaseName.includes('john')) {
+  if (lowercaseName.includes('marco')) {
     return {
-      initials: 'JD',
-      specialty: 'Master Barber & Precision Cut Specialist',
-      bio: 'John specializes in classic architectural cuts and detailed beard sculpting. With a focus on symmetry and style, he delivers timeless results.',
-      role: 'Founder'
+      initials: 'MR',
+      specialty: 'Master Barber & Style Architect',
+      bio: 'With over 15 years of experience, Marco specializes in classic architectural cuts and precision beard sculpting. He is the heartbeat of our grooming sanctuary.'
     };
-  } else if (lowercaseName.includes('jane')) {
+  } else if (lowercaseName.includes('luis')) {
     return {
-      initials: 'JS',
-      specialty: 'Expert Colorist & Scalp Therapist',
-      bio: 'Jane is our master of color and care. Renowned for premium head coloring and relaxing scalp rituals that rejuvenate your hair and spirit.',
-      role: 'Expert'
+      initials: 'LS',
+      specialty: 'Professional Grooming Artist',
+      bio: 'Luis is an expert in modern fades and contemporary styling. His attention to detail and sharp finishes make him a favorite for sharp, clean looks.'
     };
-  } else if (lowercaseName.includes('mike')) {
+  } else if (lowercaseName.includes('kevin')) {
     return {
-      initials: 'MJ',
-      specialty: 'Senior Grooming Artist & Shave Master',
-      bio: 'Mike focuses on the art of the traditional straight razor. His hot towel shaves and refreshing facial treatments are the pinnacle of grooming.',
-      role: 'Senior'
+      initials: 'KC',
+      specialty: 'Precision Stylist & Shave Master',
+      bio: 'Kevin focuses on the art of the traditional straight razor and restorative scalp treatments. He brings a creative, modern touch to every chair.'
     };
   } else {
     const initials = name
@@ -38,8 +36,7 @@ const getBarberVisuals = (name: string) => {
     return {
       initials,
       specialty: 'Professional Grooming Artist',
-      bio: 'Dedicated to precision crafting and providing a luxury styling experience tailored to your unique profile.',
-      role: 'Stylist'
+      bio: 'Dedicated to precision crafting and providing a luxury styling experience tailored to your unique profile.'
     };
   }
 };
@@ -58,7 +55,6 @@ const getServiceBadge = (name: string) => {
   }
   return 'Classic';
 };
-
 
 // Skeletons for Loading State
 const ServiceSkeleton: React.FC = () => (
@@ -103,25 +99,29 @@ const Home: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [barbersList, servicesList] = await Promise.all([
-          getBarbers(),
-          getServices()
-        ]);
-        setBarbers(barbersList);
-        setServices(servicesList);
+        const catalog = await getCatalog({ signal: controller.signal });
+        setBarbers(catalog.barbers);
+        setServices(catalog.services);
         setError(null);
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         console.error('Error fetching landing data:', err);
         setError('Failed to sync catalog data with the server. Running in fallback mode.');
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchData();
+
+    return () => controller.abort();
   }, []);
 
   return (
@@ -156,6 +156,8 @@ const Home: React.FC = () => {
         <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Link
             to="/book"
+            onMouseEnter={preloadBookingRoute}
+            onFocus={preloadBookingRoute}
             className="group relative px-8 py-4 rounded-xl font-semibold text-zinc-950 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.35)] transition-all duration-300 transform hover:-translate-y-0.5 flex items-center gap-2 text-base"
           >
             <Calendar className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
@@ -252,6 +254,8 @@ const Home: React.FC = () => {
         <div className="mt-12 text-center">
           <Link
             to="/book"
+            onMouseEnter={preloadBookingRoute}
+            onFocus={preloadBookingRoute}
             className="inline-flex items-center gap-2 text-sm font-semibold text-amber-400 hover:text-amber-300 transition-colors duration-300"
           >
             Schedule your appointment today <Calendar className="w-4 h-4" />
@@ -284,11 +288,6 @@ const Home: React.FC = () => {
                     <div>
                       <div className="flex items-center gap-2.5">
                         <h3 className="text-xl font-bold text-white group-hover:text-amber-400 transition-colors duration-300">{barber.name}</h3>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          visuals.role === 'Founder' ? 'bg-amber-500/10 text-amber-400' : 'bg-zinc-800 text-zinc-400'
-                        }`}>
-                          {visuals.role}
-                        </span>
                       </div>
                       <span className="text-xs text-zinc-500 font-medium block mt-1">{visuals.specialty}</span>
                       <p className="mt-3 text-sm text-zinc-400 leading-relaxed">{visuals.bio}</p>

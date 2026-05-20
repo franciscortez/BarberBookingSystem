@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Scissors, Menu, X, Calendar } from 'lucide-react';
+import { preloadBookingRoute } from '../routes/lazyRoutes';
 
 const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -10,15 +11,29 @@ const Navbar: React.FC = () => {
 
   // Scroll effect to make navbar more solid on scroll
   useEffect(() => {
+    let animationFrameId: number | null = null;
+
     const handleScroll = () => {
-      if (window.scrollY > 20) {
-        setScrolled(true);
-      } else {
-        setScrolled(false);
+      if (animationFrameId !== null) {
+        return;
       }
+
+      animationFrameId = window.requestAnimationFrame(() => {
+        const shouldBeScrolled = window.scrollY > 20;
+        setScrolled(current => current === shouldBeScrolled ? current : shouldBeScrolled);
+        animationFrameId = null;
+      });
     };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   // Handle hash scrolling across routes
@@ -124,6 +139,8 @@ const Navbar: React.FC = () => {
           {/* Call to Action Book Now */}
           <Link
             to="/book"
+            onMouseEnter={preloadBookingRoute}
+            onFocus={preloadBookingRoute}
             className="px-5 py-2.5 rounded-xl text-sm font-bold text-zinc-950 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.25)] transition-all duration-300 transform hover:-translate-y-0.5 flex items-center gap-1.5"
           >
             <Calendar className="w-4 h-4" /> Book Now
@@ -177,6 +194,8 @@ const Navbar: React.FC = () => {
             <Link
               to="/book"
               onClick={() => setIsOpen(false)}
+              onMouseEnter={preloadBookingRoute}
+              onFocus={preloadBookingRoute}
               className="py-3 rounded-xl text-sm font-bold text-zinc-950 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-center flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
             >
               <Calendar className="w-4 h-4" /> Book Now

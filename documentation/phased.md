@@ -85,7 +85,7 @@ This project is a Barber Booking System designed to allow customers to view avai
 
 ### Phase 5: Linear Booking Flow & Booking Management
 
-- [ ] **Step-by-Step Booking Funnel:**
+- [x] **Step-by-Step Booking Funnel:**
   - [x] **Step 1: Selection Interface:** User selects a Barber and picks a Service. Ensure services are reactive if filtered by an explicit barber selection.
   - [x] **Step 2: Scheduling:** Render a dynamic calendar panel that fetches and visualizes available time slots based on the chosen date and barber.
   - [x] **Step 3: Customer Information:** Provide a secure `CustomerForm` collecting client Name, Email, and Phone number (frontend regex validation still pending).
@@ -101,7 +101,7 @@ This project is a Barber Booking System designed to allow customers to view avai
   - [x] Send reschedule and cancellation confirmation emails after successful management actions.
   - [x] Create front-end booking management panels matching secure token-validated entry points allowing clients to cancel or pick a different date.
 - [ ] **Production Polish:**
-  - [ ] Apply disabling states and skeleton load graphics to prevent user interaction or duplicate clicks during flight requests.
+  - [x] Apply disabling states and skeleton load graphics to prevent user interaction or duplicate clicks during flight requests.
   - [ ] Inject global alert overlays or custom toast popups to gracefully report network failures or expired session states.
   - [x] Test double-booking scenario (two users trying to book the same slot simultaneously).
 

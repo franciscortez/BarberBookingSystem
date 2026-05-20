@@ -3,19 +3,9 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { AlertTriangle, ChevronLeft, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
 import { getManagedBooking, cancelBooking } from '../services/api';
 import type { Appointment } from '../types';
+import { formatDate as formatDateBase, formatTime } from '../utils/booking';
 
-const formatTime = (time: string): string => {
-  const [hours, minutes] = time.split(':');
-  const h = parseInt(hours, 10);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const displayH = h % 12 || 12;
-  return `${displayH}:${minutes} ${ampm}`;
-};
-
-const formatDate = (dateStr: string): string => {
-  const date = new Date(dateStr + 'T00:00:00');
-  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-};
+const formatDate = (dateStr: string): string => formatDateBase(dateStr, true);
 
 const formatPrice = (price: number | string | undefined): string => {
   if (price === undefined || price === null) return '—';
@@ -38,20 +28,26 @@ const CancelBooking: React.FC = () => {
   // ── Fetch the existing booking on mount ─────────────────────────────────────
   useEffect(() => {
     if (!token) return;
+    const controller = new AbortController();
 
     const fetchBooking = async () => {
       try {
         setLoadingBooking(true);
-        const appt = await getManagedBooking(token);
+        const appt = await getManagedBooking(token, { signal: controller.signal });
         setAppointment(appt);
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         setBookingError(err instanceof Error ? err.message : 'Could not load booking details. Your token may be invalid or expired.');
       } finally {
-        setLoadingBooking(false);
+        if (!controller.signal.aborted) {
+          setLoadingBooking(false);
+        }
       }
     };
 
     fetchBooking();
+
+    return () => controller.abort();
   }, [token]);
 
   // ── Submit cancellation ──────────────────────────────────────────────────────

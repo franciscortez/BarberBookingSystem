@@ -1,10 +1,31 @@
 import type { Barber, Service, Appointment } from '../types';
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL as string);
+const rawApiBaseUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+const API_BASE_URL = rawApiBaseUrl ? rawApiBaseUrl.replace(/\/+$/, '') : '';
+const CATALOG_TTL_MS = 60_000;
+const CATALOG_STALE_MS = 300_000;
 
-/**
- * Helper to handle fetch responses cleanly
- */
+type RequestOptions = RequestInit & {
+  cacheKey?: string;
+  cacheTtlMs?: number;
+  staleWhileRevalidateMs?: number;
+};
+
+type CacheEntry<T> = {
+  data: T;
+  timestamp: number;
+};
+
+const responseCache = new Map<string, CacheEntry<unknown>>();
+const pendingGets = new Map<string, Promise<unknown>>();
+
+const buildUrl = (path: string): string => {
+  if (!API_BASE_URL) {
+    throw new Error('VITE_API_URL is not configured');
+  }
+  return `${API_BASE_URL}${path}`;
+};
+
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let errorMessage = `API Error: ${response.status} ${response.statusText}`;
@@ -19,33 +40,105 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const {
+    cacheKey,
+    cacheTtlMs,
+    staleWhileRevalidateMs,
+    ...fetchOptions
+  } = options;
+  const method = (fetchOptions.method ?? 'GET').toString().toUpperCase();
+  const url = buildUrl(path);
+  const key = cacheKey ?? `${method}:${url}`;
+  const canDedupe = !fetchOptions.signal;
+
+  if (method === 'GET') {
+    const cached = responseCache.get(key) as CacheEntry<T> | undefined;
+    const now = Date.now();
+
+    if (cached && cacheTtlMs !== undefined && now - cached.timestamp < cacheTtlMs) {
+      return cached.data;
+    }
+
+    if (
+      cached &&
+      cacheTtlMs !== undefined &&
+      staleWhileRevalidateMs !== undefined &&
+      now - cached.timestamp < cacheTtlMs + staleWhileRevalidateMs
+    ) {
+      void request<T>(path, { ...fetchOptions, cacheKey: key, cacheTtlMs });
+      return cached.data;
+    }
+
+    const pending = canDedupe ? pendingGets.get(key) as Promise<T> | undefined : undefined;
+    if (pending) return pending;
+
+    const promise = fetch(url, fetchOptions)
+      .then(response => handleResponse<T>(response))
+      .then(data => {
+        if (cacheTtlMs !== undefined) {
+          responseCache.set(key, { data, timestamp: Date.now() });
+        }
+        return data;
+      })
+      .finally(() => {
+        pendingGets.delete(key);
+      });
+
+    if (canDedupe) {
+      pendingGets.set(key, promise);
+    }
+    return promise;
+  }
+
+  return fetch(url, fetchOptions).then(response => handleResponse<T>(response));
+}
+
+export interface CatalogResponse {
+  barbers: Barber[];
+  services: Service[];
+}
+
+export async function getCatalog(options: { signal?: AbortSignal } = {}): Promise<CatalogResponse> {
+  return request<CatalogResponse>('/api/catalog', {
+    signal: options.signal,
+    cacheKey: 'catalog',
+    cacheTtlMs: CATALOG_TTL_MS,
+    staleWhileRevalidateMs: CATALOG_STALE_MS
+  });
+}
+
 /**
  * Barbers API
  */
-export async function getBarbers(): Promise<Barber[]> {
-  const response = await fetch(`${API_BASE_URL}/api/barbers`);
-  return handleResponse<Barber[]>(response);
+export async function getBarbers(options: { signal?: AbortSignal } = {}): Promise<Barber[]> {
+  const catalog = await getCatalog(options);
+  return catalog.barbers;
 }
 
-export async function getBarber(id: string): Promise<Barber> {
-  const response = await fetch(`${API_BASE_URL}/api/barbers/${id}`);
-  return handleResponse<Barber>(response);
+export async function getBarber(id: string, options: { signal?: AbortSignal } = {}): Promise<Barber> {
+  return request<Barber>(`/api/barbers/${encodeURIComponent(id)}`, { signal: options.signal });
 }
 
 /**
  * Services API
  */
-export async function getServices(barberId?: string): Promise<Service[]> {
-  const url = barberId 
-    ? `${API_BASE_URL}/api/services?barberId=${encodeURIComponent(barberId)}`
-    : `${API_BASE_URL}/api/services`;
-  const response = await fetch(url);
-  return handleResponse<Service[]>(response);
+export async function getServices(barberId?: string, options: { signal?: AbortSignal } = {}): Promise<Service[]> {
+  if (!barberId) {
+    const catalog = await getCatalog(options);
+    return catalog.services;
+  }
+
+  return request<Service[]>(`/api/services?barberId=${encodeURIComponent(barberId)}`, {
+    signal: options.signal,
+    cacheKey: `services:${barberId}`,
+    cacheTtlMs: CATALOG_TTL_MS,
+    staleWhileRevalidateMs: CATALOG_STALE_MS
+  });
 }
 
-export async function getService(id: string): Promise<Service> {
-  const response = await fetch(`${API_BASE_URL}/api/services/${id}`);
-  return handleResponse<Service>(response);
+export async function getService(id: string, options: { signal?: AbortSignal } = {}): Promise<Service> {
+  return request<Service>(`/api/services/${encodeURIComponent(id)}`, { signal: options.signal });
 }
 
 /**
@@ -56,20 +149,21 @@ export interface AvailabilityResponse {
   date: string;
   serviceId?: string;
   duration: number;
+  slots?: { start: string; end: string; available: boolean; unavailableReason?: 'booked' | 'past' }[];
   availableSlots: { start: string; end: string }[];
 }
 
 export async function getAvailability(
   barberId: string, 
   date: string, 
-  serviceId?: string
+  serviceId?: string,
+  options: { signal?: AbortSignal } = {}
 ): Promise<AvailabilityResponse> {
-  let url = `${API_BASE_URL}/api/availability?barberId=${encodeURIComponent(barberId)}&date=${encodeURIComponent(date)}`;
+  let path = `/api/availability?barberId=${encodeURIComponent(barberId)}&date=${encodeURIComponent(date)}`;
   if (serviceId) {
-    url += `&serviceId=${encodeURIComponent(serviceId)}`;
+    path += `&serviceId=${encodeURIComponent(serviceId)}`;
   }
-  const response = await fetch(url);
-  return handleResponse<AvailabilityResponse>(response);
+  return request<AvailabilityResponse>(path, { signal: options.signal });
 }
 
 /**
@@ -92,19 +186,19 @@ export interface CreateBookingResponse {
 }
 
 export async function createBooking(data: CreateBookingInput): Promise<CreateBookingResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/appointments`, {
+  return request<CreateBookingResponse>('/api/appointments', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(data),
   });
-  return handleResponse<CreateBookingResponse>(response);
 }
 
-export async function getManagedBooking(token: string): Promise<Appointment> {
-  const response = await fetch(`${API_BASE_URL}/api/appointments/manage?token=${encodeURIComponent(token)}`);
-  return handleResponse<Appointment>(response);
+export async function getManagedBooking(token: string, options: { signal?: AbortSignal } = {}): Promise<Appointment> {
+  return request<Appointment>(`/api/appointments/manage?token=${encodeURIComponent(token)}`, {
+    signal: options.signal
+  });
 }
 
 export interface RescheduleBookingInput {
@@ -119,14 +213,13 @@ export interface RescheduleBookingResponse {
 }
 
 export async function rescheduleBooking(data: RescheduleBookingInput): Promise<RescheduleBookingResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/appointments/reschedule`, {
+  return request<RescheduleBookingResponse>('/api/appointments/reschedule', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(data),
   });
-  return handleResponse<RescheduleBookingResponse>(response);
 }
 
 export interface CancelBookingResponse {
@@ -135,12 +228,11 @@ export interface CancelBookingResponse {
 }
 
 export async function cancelBooking(token: string): Promise<CancelBookingResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/appointments/cancel`, {
+  return request<CancelBookingResponse>('/api/appointments/cancel', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ token }),
   });
-  return handleResponse<CancelBookingResponse>(response);
 }

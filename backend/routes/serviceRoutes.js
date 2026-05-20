@@ -9,10 +9,11 @@ const {
 } = require('../controller/serviceController');
 
 const authMiddleware = require('../middleware/authMiddleware');
+const { catalogReadLimiter } = require('../middleware/rateLimiters');
 
 // Public endpoints
-router.get('/', getServices);
-router.get('/:id', getService);
+router.get('/', catalogReadLimiter, getServices);
+router.get('/:id', catalogReadLimiter, getService);
 
 // Protected routes (Admin only)
 router.post('/', authMiddleware, addService);

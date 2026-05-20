@@ -5,83 +5,17 @@ import 'react-day-picker/style.css';
 import { Calendar, ChevronLeft, AlertTriangle, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
 import { getManagedBooking, getAvailability, rescheduleBooking } from '../services/api';
 import type { Appointment } from '../types';
+import {
+  buildSlotOptions,
+  formatDate as formatDateBase,
+  formatTime,
+  getStartOfToday,
+  parseLocalISODate,
+  toLocalISODate,
+  type SlotOption
+} from '../utils/booking';
 
-type SlotOption = {
-  start: string;
-  end: string;
-  available: boolean;
-  unavailableReason?: 'booked' | 'past';
-};
-
-const formatTime = (time: string): string => {
-  const [hours, minutes] = time.split(':');
-  const h = parseInt(hours, 10);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const displayH = h % 12 || 12;
-  return `${displayH}:${minutes} ${ampm}`;
-};
-
-const formatDate = (dateStr: string): string => {
-  const date = new Date(dateStr + 'T00:00:00');
-  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-};
-
-const toLocalISODate = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const parseLocalISODate = (dateStr: string): Date | undefined => {
-  if (!dateStr) return undefined;
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day);
-};
-
-const getStartOfToday = (): Date => {
-  const today = new Date();
-  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
-};
-
-const buildSlotOptions = (
-  date: string,
-  duration: number,
-  availableSlots: { start: string; end: string }[]
-): SlotOption[] => {
-  const START_HOUR = 9;
-  const END_HOUR = 18;
-  const SLOT_INTERVAL = 30;
-  const availableStarts = new Set(availableSlots.map(slot => slot.start.substring(0, 5)));
-  const options: SlotOption[] = [];
-
-  let current = new Date(`${date}T${String(START_HOUR).padStart(2, '0')}:00:00`);
-  const end = new Date(`${date}T${String(END_HOUR).padStart(2, '0')}:00:00`);
-  const now = new Date();
-
-  while (current < end) {
-    const slotStart = current.toTimeString().substring(0, 5);
-    const slotEndDate = new Date(current.getTime() + duration * 60000);
-
-    if (slotEndDate > end) break;
-
-    const slotEnd = slotEndDate.toTimeString().substring(0, 5);
-    const slotStartDate = new Date(`${date}T${slotStart}:00`);
-    const isPast = slotStartDate <= now;
-    const isAvailableFromServer = availableStarts.has(slotStart);
-
-    options.push({
-      start: slotStart,
-      end: slotEnd,
-      available: isAvailableFromServer && !isPast,
-      unavailableReason: isPast ? 'past' : isAvailableFromServer ? undefined : 'booked'
-    });
-
-    current = new Date(current.getTime() + SLOT_INTERVAL * 60000);
-  }
-
-  return options;
-};
+const formatDate = (dateStr: string): string => formatDateBase(dateStr, true);
 
 const RescheduleBooking: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -113,20 +47,26 @@ const RescheduleBooking: React.FC = () => {
   // ── Fetch the existing booking on mount ─────────────────────────────────────
   useEffect(() => {
     if (!token) return;
+    const controller = new AbortController();
 
     const fetchBooking = async () => {
       try {
         setLoadingBooking(true);
-        const appt = await getManagedBooking(token);
+        const appt = await getManagedBooking(token, { signal: controller.signal });
         setAppointment(appt);
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         setBookingError(err instanceof Error ? err.message : 'Could not load booking details. Your token may be invalid or expired.');
       } finally {
-        setLoadingBooking(false);
+        if (!controller.signal.aborted) {
+          setLoadingBooking(false);
+        }
       }
     };
 
     fetchBooking();
+
+    return () => controller.abort();
   }, [token]);
 
   // ── Fetch available slots when date changes ──────────────────────────────────
@@ -134,23 +74,31 @@ const RescheduleBooking: React.FC = () => {
     if (!appointment || !selectedDate) {
       return;
     }
+    const controller = new AbortController();
 
     const fetchSlots = async () => {
       try {
         setLoadingSlots(true);
         setSelectedSlot(null);
         setAvailabilityError(null);
-        const result = await getAvailability(appointment.barber_id, selectedDate, appointment.service_id);
-        setSlotOptions(buildSlotOptions(selectedDate, result.duration, result.availableSlots));
+        const result = await getAvailability(appointment.barber_id, selectedDate, appointment.service_id, {
+          signal: controller.signal
+        });
+        setSlotOptions(buildSlotOptions(selectedDate, result.duration, result.slots ?? result.availableSlots));
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         setSlotOptions([]);
         setAvailabilityError(err instanceof Error ? err.message : 'Unable to load availability for this date.');
       } finally {
-        setLoadingSlots(false);
+        if (!controller.signal.aborted) {
+          setLoadingSlots(false);
+        }
       }
     };
 
     fetchSlots();
+
+    return () => controller.abort();
   }, [appointment, selectedDate]);
 
   // ── Submit reschedule ────────────────────────────────────────────────────────

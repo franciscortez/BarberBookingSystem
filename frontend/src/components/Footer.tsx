@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Scissors, MapPin, Phone, Mail, ArrowUpRight } from 'lucide-react';
+import { preloadBookingRoute } from '../routes/lazyRoutes';
 
 const Footer: React.FC = () => {
   const location = useLocation();
@@ -105,7 +106,12 @@ const Footer: React.FC = () => {
               <a href="#team" onClick={(e) => handleNavClick(e, 'team')} className="hover:text-white hover:underline decoration-amber-400/50 transition-colors inline-flex items-center gap-1">
                 Team <ArrowUpRight className="w-3 h-3 opacity-50" />
               </a>
-              <Link to="/book" className="text-amber-400 hover:text-amber-300 font-semibold transition-colors inline-flex items-center gap-1">
+              <Link
+                to="/book"
+                onMouseEnter={preloadBookingRoute}
+                onFocus={preloadBookingRoute}
+                className="text-amber-400 hover:text-amber-300 font-semibold transition-colors inline-flex items-center gap-1"
+              >
                 Book An Appointment <ArrowUpRight className="w-3 h-3" />
               </Link>
             </div>

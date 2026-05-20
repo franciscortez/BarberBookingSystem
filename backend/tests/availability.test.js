@@ -34,7 +34,10 @@ describe('Availability API Endpoints', () => {
 
         expect(res.statusCode).toEqual(200);
         expect(res.body).toHaveProperty('availableSlots');
+        expect(res.body).toHaveProperty('slots');
         expect(res.body.availableSlots.length).toBeGreaterThan(0);
+        expect(res.body.slots.length).toBeGreaterThanOrEqual(res.body.availableSlots.length);
+        expect(res.headers['cache-control']).toBe('no-store');
     });
 
     it('GET /api/availability should exclude occupied slots', async () => {
@@ -56,10 +59,15 @@ describe('Availability API Endpoints', () => {
         const isTenAvailable = res.body.availableSlots.some(slot => slot.start === '10:00');
         const isTenThirtyAvailable = res.body.availableSlots.some(slot => slot.start === '10:30');
         const isNineAvailable = res.body.availableSlots.some(slot => slot.start === '09:00');
+        const tenSlot = res.body.slots.find(slot => slot.start === '10:00');
+        const nineSlot = res.body.slots.find(slot => slot.start === '09:00');
 
         expect(isTenAvailable).toBe(false);
         expect(isTenThirtyAvailable).toBe(false);
         expect(isNineAvailable).toBe(true);
+        expect(tenSlot.available).toBe(false);
+        expect(tenSlot.unavailableReason).toBe('booked');
+        expect(nineSlot.available).toBe(true);
     });
 
     it('GET /api/availability should return 400 if params missing', async () => {

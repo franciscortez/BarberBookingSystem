@@ -6,100 +6,24 @@ import {
   User, Calendar, CreditCard, ChevronRight, ChevronLeft,
   Clock, Scissors, AlertCircle, Loader2, CheckCircle2
 } from 'lucide-react';
-import { getBarbers, getServices, getAvailability, createBooking } from '../services/api';
+import { getCatalog, getAvailability, createBooking } from '../services/api';
 import type { Barber, Service } from '../types';
-
-type SlotOption = {
-  start: string;
-  end: string;
-  available: boolean;
-  unavailableReason?: 'booked' | 'past';
-};
+import {
+  buildSlotOptions,
+  formatDate,
+  formatPrice,
+  formatTime,
+  getStartOfToday,
+  parseAmount,
+  parseLocalISODate,
+  toLocalISODate,
+  type SlotOption
+} from '../utils/booking';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
 const getInitials = (name: string): string =>
   name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-
-const parseAmount = (price: number | string): number => {
-  const num = typeof price === 'string' ? parseFloat(price) : price;
-  return Number.isFinite(num) ? num : 0;
-};
-
-const formatPrice = (price: number | string): string => {
-  const num = parseAmount(price);
-  return `₱${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-};
-
-const formatTime = (time: string): string => {
-  const [hours, minutes] = time.split(':');
-  const h = parseInt(hours, 10);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const displayH = h % 12 || 12;
-  return `${displayH}:${minutes} ${ampm}`;
-};
-
-const formatDate = (dateStr: string): string => {
-  const date = new Date(dateStr + 'T00:00:00');
-  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-};
-
-const toLocalISODate = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const parseLocalISODate = (dateStr: string): Date | undefined => {
-  if (!dateStr) return undefined;
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day);
-};
-
-const getStartOfToday = (): Date => {
-  const today = new Date();
-  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
-};
-
-const buildSlotOptions = (
-  date: string,
-  duration: number,
-  availableSlots: { start: string; end: string }[]
-): SlotOption[] => {
-  const START_HOUR = 9;
-  const END_HOUR = 18;
-  const SLOT_INTERVAL = 30;
-  const availableStarts = new Set(availableSlots.map(slot => slot.start.substring(0, 5)));
-  const options: SlotOption[] = [];
-
-  let current = new Date(`${date}T${String(START_HOUR).padStart(2, '0')}:00:00`);
-  const end = new Date(`${date}T${String(END_HOUR).padStart(2, '0')}:00:00`);
-  const now = new Date();
-
-  while (current < end) {
-    const slotStart = current.toTimeString().substring(0, 5);
-    const slotEndDate = new Date(current.getTime() + duration * 60000);
-
-    if (slotEndDate > end) break;
-
-    const slotEnd = slotEndDate.toTimeString().substring(0, 5);
-    const slotStartDate = new Date(`${date}T${slotStart}:00`);
-    const isPast = slotStartDate <= now;
-    const isAvailableFromServer = availableStarts.has(slotStart);
-
-    options.push({
-      start: slotStart,
-      end: slotEnd,
-      available: isAvailableFromServer && !isPast,
-      unavailableReason: isPast ? 'past' : isAvailableFromServer ? undefined : 'booked'
-    });
-
-    current = new Date(current.getTime() + SLOT_INTERVAL * 60000);
-  }
-
-  return options;
-};
 
 // ─── Skeleton Components ───────────────────────────────────────────────────────
 
@@ -193,12 +117,12 @@ const BookingFunnel: React.FC = () => {
       .filter(group => group.services.length > 0);
   }, [barbers, selectedBarber, servicesByBarber]);
 
-  const steps = [
+  const steps = useMemo(() => [
     { number: 1, label: 'Select Barber & Service', icon: Scissors },
     { number: 2, label: 'Choose Date & Time', icon: Calendar },
     { number: 3, label: 'Customer Details', icon: User },
     { number: 4, label: 'Review & Checkout', icon: CreditCard },
-  ];
+  ], []);
 
   const handleSelectBarber = (barber: Barber) => {
     setSelectedBarber(barber);
@@ -223,29 +147,33 @@ const BookingFunnel: React.FC = () => {
 
   // ── Fetch booking catalog on mount ──────────────────────────────────────────
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchCatalog = async () => {
       try {
         setLoadingBarbers(true);
         setLoadingServices(true);
-        const [barbersList, servicesList] = await Promise.all([
-          getBarbers(),
-          getServices()
-        ]);
-        setBarbers(barbersList);
-        setServices(servicesList);
+        const catalog = await getCatalog({ signal: controller.signal });
+        setBarbers(catalog.barbers);
+        setServices(catalog.services);
         // Pre-select barber from URL param (?barberId=...)
         if (preselectedBarberId) {
-          const found = barbersList.find(b => b.id === preselectedBarberId);
+          const found = catalog.barbers.find(b => b.id === preselectedBarberId);
           if (found) setSelectedBarber(found);
         }
-      } catch {
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         setError('Unable to load the booking catalog. Please refresh the page.');
       } finally {
-        setLoadingBarbers(false);
-        setLoadingServices(false);
+        if (!controller.signal.aborted) {
+          setLoadingBarbers(false);
+          setLoadingServices(false);
+        }
       }
     };
     fetchCatalog();
+
+    return () => controller.abort();
   }, [preselectedBarberId]);
 
   // ── Fetch available slots when date or service changes ─────────────────────
@@ -253,21 +181,30 @@ const BookingFunnel: React.FC = () => {
     if (!selectedBarber || !selectedDate || !selectedService) {
       return;
     }
+    const controller = new AbortController();
+
     const fetchSlots = async () => {
       try {
         setLoadingSlots(true);
         setAvailabilityError(null);
         setSelectedSlot(null);
-        const result = await getAvailability(selectedBarber.id, selectedDate, selectedService.id);
-        setSlotOptions(buildSlotOptions(selectedDate, result.duration, result.availableSlots));
-      } catch {
+        const result = await getAvailability(selectedBarber.id, selectedDate, selectedService.id, {
+          signal: controller.signal
+        });
+        setSlotOptions(buildSlotOptions(selectedDate, result.duration, result.slots ?? result.availableSlots));
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         setSlotOptions([]);
         setAvailabilityError('Unable to load available times for this date. Please try another date or refresh the page.');
       } finally {
-        setLoadingSlots(false);
+        if (!controller.signal.aborted) {
+          setLoadingSlots(false);
+        }
       }
     };
     fetchSlots();
+
+    return () => controller.abort();
   }, [selectedBarber, selectedDate, selectedService]);
 
   // ── Navigation guards ───────────────────────────────────────────────────────
@@ -375,10 +312,19 @@ const BookingFunnel: React.FC = () => {
           {/* ── STEP 1: SELECT BARBER & SERVICE ── */}
           {currentStep === 1 && (
             <div>
-              <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                <Scissors className="w-5 h-5 text-amber-400" />
-                Select Your Barber & Preferred Service
-              </h2>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Scissors className="w-5 h-5 text-amber-400" />
+                  Select Your Barber & Preferred Service
+                </h2>
+                
+                {/* Dedicated Policy Note */}
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-amber-500/90 text-[10px] font-bold uppercase tracking-tight italic">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Downpayments are non-refundable
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
                 {/* Barbers */}
                 <div>
@@ -735,9 +681,10 @@ const BookingFunnel: React.FC = () => {
                   </div>
                   <div className="mt-4 p-3 rounded-lg bg-zinc-900 border border-zinc-800 flex gap-2 items-start">
                     <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-zinc-400 leading-relaxed">
-                      You will be redirected to our secure PayMongo checkout to process the downpayment and confirm your slot.
-                    </p>
+                    <div className="text-[10px] text-zinc-400 leading-relaxed">
+                      <p>You will be redirected to our secure PayMongo checkout to process the downpayment and confirm your slot.</p>
+                      <p className="mt-1.5 text-amber-500 font-bold uppercase tracking-tight italic">Note: All downpayments are strictly non-refundable.</p>
+                    </div>
                   </div>
                 </div>
               </div>
