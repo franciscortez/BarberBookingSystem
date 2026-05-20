@@ -15,6 +15,7 @@ export interface Service {
   duration_mins: number;
   created_at?: string;
   updated_at?: string;
+  barber_name?: string;
 }
 
 export interface Appointment {

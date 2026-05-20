@@ -7,25 +7,25 @@ import type { Barber, Service } from '../types';
 // Helper to enrich database barbers with premium details
 const getBarberVisuals = (name: string) => {
   const lowercaseName = name.toLowerCase();
-  if (lowercaseName.includes('john') || lowercaseName.includes('cortez')) {
+  if (lowercaseName.includes('john')) {
     return {
       initials: 'JD',
-      specialty: 'Master Barber & Skin Fade Specialist (8+ Yrs Exp)',
-      bio: 'John specializes in modern architectural fades, precision scissor contours, and luxury beard sculpting. Crafting tailored experiences since day one.',
+      specialty: 'Master Barber & Precision Cut Specialist',
+      bio: 'John specializes in classic architectural cuts and detailed beard sculpting. With a focus on symmetry and style, he delivers timeless results.',
       role: 'Founder'
     };
-  } else if (lowercaseName.includes('jane') || lowercaseName.includes('smith')) {
+  } else if (lowercaseName.includes('jane')) {
     return {
       initials: 'JS',
-      specialty: 'Traditional Shave Artist & Pompadour Expert',
-      bio: 'Jane is our master of the classic straight razor. Renowned for meticulous hot lather layers, smooth skin shaves, and iconic classic styles.',
+      specialty: 'Expert Colorist & Scalp Therapist',
+      bio: 'Jane is our master of color and care. Renowned for premium head coloring and relaxing scalp rituals that rejuvenate your hair and spirit.',
       role: 'Expert'
     };
-  } else if (lowercaseName.includes('mike') || lowercaseName.includes('johnson')) {
+  } else if (lowercaseName.includes('mike')) {
     return {
       initials: 'MJ',
-      specialty: 'Contour Artist & Hair Health Specialist',
-      bio: 'Mike focuses on structural shear contours, organic hair treatments, and modern textured styling. Delivering precision care to every chair session.',
+      specialty: 'Senior Grooming Artist & Shave Master',
+      bio: 'Mike focuses on the art of the traditional straight razor. His hot towel shaves and refreshing facial treatments are the pinnacle of grooming.',
       role: 'Senior'
     };
   } else {
@@ -37,8 +37,8 @@ const getBarberVisuals = (name: string) => {
       .toUpperCase();
     return {
       initials,
-      specialty: 'Expert Stylist & Shave Practitioner',
-      bio: 'Dedicated to precision crafting, customized detailing profiles, and luxury styling experiences tailored to you.',
+      specialty: 'Professional Grooming Artist',
+      bio: 'Dedicated to precision crafting and providing a luxury styling experience tailored to your unique profile.',
       role: 'Stylist'
     };
   }
@@ -51,13 +51,14 @@ const formatPrice = (price: number | string) => {
 
 const getServiceBadge = (name: string) => {
   const lowercase = name.toLowerCase();
-  if (lowercase.includes('color') || lowercase.includes('shave') || lowercase.includes('facial')) {
+  if (lowercase.includes('color') || lowercase.includes('facial')) {
     return 'Luxury';
-  } else if (lowercase.includes('combo') || lowercase.includes('ritual') || lowercase.includes('massage')) {
-    return 'Combo';
+  } else if (lowercase.includes('shave') || lowercase.includes('massage')) {
+    return 'Ritual';
   }
   return 'Classic';
 };
+
 
 // Skeletons for Loading State
 const ServiceSkeleton: React.FC = () => (
@@ -148,7 +149,7 @@ const Home: React.FC = () => {
 
         {/* Subtitle */}
         <p className="mt-6 text-zinc-400 text-lg md:text-xl max-w-2xl leading-relaxed">
-          Step into a premium grooming sanctuary. Handcrafted haircuts, hot towel shaves, and top-tier service tailored to the modern gentleman. No account required.
+          Step into a premium grooming sanctuary. From precision haircuts and expert coloring to traditional straight razor shaves—tailored excellence for the modern gentleman. No account required.
         </p>
 
         {/* CTA Buttons */}
@@ -228,6 +229,7 @@ const Home: React.FC = () => {
                     <span className="text-xl font-bold text-amber-400">{formatPrice(service.total_price)}</span>
                   </div>
                   <h3 className="mt-4 text-xl font-bold text-white group-hover:text-amber-400 transition-colors duration-300">{service.name}</h3>
+                  <p className="mt-1 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">With {service.barber_name}</p>
                   <p className="mt-2 text-sm text-zinc-400 leading-relaxed">{service.description || 'Professional grooming service.'}</p>
                 </div>
                 <div className="p-6 pt-0 mt-auto">

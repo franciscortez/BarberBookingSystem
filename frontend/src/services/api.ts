@@ -1,6 +1,6 @@
 import type { Barber, Service, Appointment } from '../types';
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:5000';
+const API_BASE_URL = (import.meta.env.VITE_API_URL as string);
 
 /**
  * Helper to handle fetch responses cleanly

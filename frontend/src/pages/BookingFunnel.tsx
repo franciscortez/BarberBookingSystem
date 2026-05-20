@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/style.css';
@@ -9,13 +9,25 @@ import {
 import { getBarbers, getServices, getAvailability, createBooking } from '../services/api';
 import type { Barber, Service } from '../types';
 
+type SlotOption = {
+  start: string;
+  end: string;
+  available: boolean;
+  unavailableReason?: 'booked' | 'past';
+};
+
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
 const getInitials = (name: string): string =>
   name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
-const formatPrice = (price: number | string): string => {
+const parseAmount = (price: number | string): number => {
   const num = typeof price === 'string' ? parseFloat(price) : price;
+  return Number.isFinite(num) ? num : 0;
+};
+
+const formatPrice = (price: number | string): string => {
+  const num = parseAmount(price);
   return `₱${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
@@ -48,6 +60,45 @@ const parseLocalISODate = (dateStr: string): Date | undefined => {
 const getStartOfToday = (): Date => {
   const today = new Date();
   return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+};
+
+const buildSlotOptions = (
+  date: string,
+  duration: number,
+  availableSlots: { start: string; end: string }[]
+): SlotOption[] => {
+  const START_HOUR = 9;
+  const END_HOUR = 18;
+  const SLOT_INTERVAL = 30;
+  const availableStarts = new Set(availableSlots.map(slot => slot.start.substring(0, 5)));
+  const options: SlotOption[] = [];
+
+  let current = new Date(`${date}T${String(START_HOUR).padStart(2, '0')}:00:00`);
+  const end = new Date(`${date}T${String(END_HOUR).padStart(2, '0')}:00:00`);
+  const now = new Date();
+
+  while (current < end) {
+    const slotStart = current.toTimeString().substring(0, 5);
+    const slotEndDate = new Date(current.getTime() + duration * 60000);
+
+    if (slotEndDate > end) break;
+
+    const slotEnd = slotEndDate.toTimeString().substring(0, 5);
+    const slotStartDate = new Date(`${date}T${slotStart}:00`);
+    const isPast = slotStartDate <= now;
+    const isAvailableFromServer = availableStarts.has(slotStart);
+
+    options.push({
+      start: slotStart,
+      end: slotEnd,
+      available: isAvailableFromServer && !isPast,
+      unavailableReason: isPast ? 'past' : isAvailableFromServer ? undefined : 'booked'
+    });
+
+    current = new Date(current.getTime() + SLOT_INTERVAL * 60000);
+  }
+
+  return options;
 };
 
 // ─── Skeleton Components ───────────────────────────────────────────────────────
@@ -86,7 +137,7 @@ const BookingFunnel: React.FC = () => {
   // API data
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-  const [availableSlots, setAvailableSlots] = useState<{ start: string; end: string }[]>([]);
+  const [slotOptions, setSlotOptions] = useState<SlotOption[]>([]);
 
   // Loading states
   const [loadingBarbers, setLoadingBarbers] = useState<boolean>(true);
@@ -110,6 +161,37 @@ const BookingFunnel: React.FC = () => {
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
   const selectedDateObject = parseLocalISODate(selectedDate);
+  const isSelectedDateFullyBooked = Boolean(
+    selectedDateObject &&
+    !loadingSlots &&
+    !availabilityError &&
+    slotOptions.length > 0 &&
+    slotOptions.every(slot => !slot.available)
+  );
+  const availableSlotCount = useMemo(
+    () => slotOptions.filter(slot => slot.available).length,
+    [slotOptions]
+  );
+
+  const servicesByBarber = useMemo(() => {
+    return services.reduce<Map<string, Service[]>>((groups, service) => {
+      const barberServices = groups.get(service.barber_id) ?? [];
+      barberServices.push(service);
+      groups.set(service.barber_id, barberServices);
+      return groups;
+    }, new Map());
+  }, [services]);
+
+  const visibleServiceGroups = useMemo(() => {
+    const sourceBarbers = selectedBarber ? [selectedBarber] : barbers;
+
+    return sourceBarbers
+      .map(barber => ({
+        barber,
+        services: servicesByBarber.get(barber.id) ?? []
+      }))
+      .filter(group => group.services.length > 0);
+  }, [barbers, selectedBarber, servicesByBarber]);
 
   const steps = [
     { number: 1, label: 'Select Barber & Service', icon: Scissors },
@@ -120,61 +202,51 @@ const BookingFunnel: React.FC = () => {
 
   const handleSelectBarber = (barber: Barber) => {
     setSelectedBarber(barber);
-    setServices([]);
     setSelectedService(null);
     setSelectedDate('');
     setSelectedSlot(null);
-    setAvailableSlots([]);
+    setSlotOptions([]);
     setAvailabilityError(null);
   };
 
   const handleSelectService = (service: Service) => {
+    const serviceBarber = barbers.find(barber => barber.id === service.barber_id);
+    if (serviceBarber) {
+      setSelectedBarber(serviceBarber);
+    }
     setSelectedService(service);
     setSelectedDate('');
     setSelectedSlot(null);
-    setAvailableSlots([]);
+    setSlotOptions([]);
     setAvailabilityError(null);
   };
 
-  // ── Fetch barbers on mount ──────────────────────────────────────────────────
+  // ── Fetch booking catalog on mount ──────────────────────────────────────────
   useEffect(() => {
-    const fetchBarbers = async () => {
+    const fetchCatalog = async () => {
       try {
         setLoadingBarbers(true);
-        const list = await getBarbers();
-        setBarbers(list);
+        setLoadingServices(true);
+        const [barbersList, servicesList] = await Promise.all([
+          getBarbers(),
+          getServices()
+        ]);
+        setBarbers(barbersList);
+        setServices(servicesList);
         // Pre-select barber from URL param (?barberId=...)
         if (preselectedBarberId) {
-          const found = list.find(b => b.id === preselectedBarberId);
+          const found = barbersList.find(b => b.id === preselectedBarberId);
           if (found) setSelectedBarber(found);
         }
       } catch {
-        setError('Unable to load barbers. Please refresh the page.');
+        setError('Unable to load the booking catalog. Please refresh the page.');
       } finally {
         setLoadingBarbers(false);
-      }
-    };
-    fetchBarbers();
-  }, [preselectedBarberId]);
-
-  // ── Fetch services when barber is selected ─────────────────────────────────
-  useEffect(() => {
-    if (!selectedBarber) {
-      return;
-    }
-    const fetchServices = async () => {
-      try {
-        setLoadingServices(true);
-        const list = await getServices(selectedBarber.id);
-        setServices(list);
-      } catch {
-        setError('Unable to load services for this barber.');
-      } finally {
         setLoadingServices(false);
       }
     };
-    fetchServices();
-  }, [selectedBarber]);
+    fetchCatalog();
+  }, [preselectedBarberId]);
 
   // ── Fetch available slots when date or service changes ─────────────────────
   useEffect(() => {
@@ -187,9 +259,9 @@ const BookingFunnel: React.FC = () => {
         setAvailabilityError(null);
         setSelectedSlot(null);
         const result = await getAvailability(selectedBarber.id, selectedDate, selectedService.id);
-        setAvailableSlots(result.availableSlots);
+        setSlotOptions(buildSlotOptions(selectedDate, result.duration, result.availableSlots));
       } catch {
-        setAvailableSlots([]);
+        setSlotOptions([]);
         setAvailabilityError('Unable to load available times for this date. Please try another date or refresh the page.');
       } finally {
         setLoadingSlots(false);
@@ -333,9 +405,11 @@ const BookingFunnel: React.FC = () => {
                           }`}>
                             {getInitials(barber.name)}
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <h4 className={`font-semibold text-sm ${isSelected ? 'text-white' : 'text-zinc-300'}`}>{barber.name}</h4>
-                            <p className="text-xs text-zinc-500 mt-0.5">Master Grooming Specialist</p>
+                            <p className="text-xs text-zinc-500 mt-0.5">
+                              {(servicesByBarber.get(barber.id)?.length ?? 0)} {(servicesByBarber.get(barber.id)?.length ?? 0) === 1 ? 'service' : 'services'} available
+                            </p>
                           </div>
                           {isSelected && <CheckCircle2 className="w-4 h-4 text-amber-400 ml-auto shrink-0" />}
                         </button>
@@ -347,47 +421,76 @@ const BookingFunnel: React.FC = () => {
                 {/* Services */}
                 <div>
                   <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Select Service</label>
-                  {!selectedBarber ? (
-                    <div className="p-6 rounded-xl border border-zinc-900 bg-zinc-950 text-center text-zinc-500 text-sm">
-                      Select a barber first to view their services.
-                    </div>
-                  ) : loadingServices ? (
+                  {loadingServices ? (
                     <div className="space-y-3"><ServiceSkeleton /><ServiceSkeleton /></div>
-                  ) : services.length === 0 ? (
+                  ) : services.length === 0 || visibleServiceGroups.length === 0 ? (
                     <div className="p-6 rounded-xl border border-zinc-900 bg-zinc-950 text-center text-zinc-500 text-sm">
-                      No services available for this barber.
+                      {selectedBarber ? 'No services available for this barber.' : 'No services available.'}
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {services.map(service => {
-                        const isSelected = selectedService?.id === service.id;
-                        return (
-                          <button
-                            key={service.id}
-                            onClick={() => handleSelectService(service)}
-                            className={`w-full p-4 rounded-xl border transition-all cursor-pointer flex justify-between items-center text-left ${
-                              isSelected
-                                ? 'border-amber-500/60 bg-amber-500/8 shadow-[0_0_15px_rgba(245,158,11,0.08)]'
-                                : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700'
-                            }`}
-                          >
-                            <div>
-                              <h4 className={`font-semibold text-sm ${isSelected ? 'text-white' : 'text-zinc-300'}`}>{service.name}</h4>
-                              <span className={`text-xs flex items-center gap-1 mt-1 ${isSelected ? 'text-amber-400/70' : 'text-zinc-500'}`}>
-                                <Clock className="w-3 h-3" /> {service.duration_mins} mins
-                              </span>
+                    <div className="space-y-4 max-h-[470px] overflow-y-auto pr-1">
+                      {visibleServiceGroups.map(group => (
+                        <div key={group.barber.id} className="space-y-2">
+                          {!selectedBarber && (
+                            <div className="flex items-center gap-2 px-1">
+                              <div className="h-px flex-grow bg-zinc-900" />
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{group.barber.name}</span>
+                              <div className="h-px flex-grow bg-zinc-900" />
                             </div>
-                            <div className="text-right shrink-0 ml-4">
-                              <span className={`font-bold text-sm block ${isSelected ? 'text-amber-400' : 'text-zinc-300'}`}>
-                                {formatPrice(service.total_price)}
-                              </span>
-                              <p className="text-[10px] text-zinc-500 mt-0.5">
-                                Downpayment: {formatPrice(service.downpayment_amount)}
-                              </p>
-                            </div>
-                          </button>
-                        );
-                      })}
+                          )}
+                          {group.services.map(service => {
+                            const isSelected = selectedService?.id === service.id;
+                            const remainingBalance = parseAmount(service.total_price) - parseAmount(service.downpayment_amount);
+
+                            return (
+                              <button
+                                key={service.id}
+                                onClick={() => handleSelectService(service)}
+                                className={`w-full p-4 rounded-xl border transition-all cursor-pointer text-left ${
+                                  isSelected
+                                    ? 'border-amber-500/60 bg-amber-500/8 shadow-[0_0_15px_rgba(245,158,11,0.08)]'
+                                    : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="min-w-0">
+                                    <h4 className={`font-semibold text-sm ${isSelected ? 'text-white' : 'text-zinc-300'}`}>{service.name}</h4>
+                                    {service.description && (
+                                      <p className="text-xs text-zinc-500 mt-1 leading-relaxed">{service.description}</p>
+                                    )}
+                                  </div>
+                                  {isSelected && <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />}
+                                </div>
+
+                                <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg border border-zinc-800/80 bg-zinc-950/60 p-3">
+                                  <div>
+                                    <span className="block text-[10px] uppercase tracking-wider text-zinc-600">Duration</span>
+                                    <span className={`mt-0.5 flex items-center gap-1 text-xs font-semibold ${isSelected ? 'text-amber-400' : 'text-zinc-300'}`}>
+                                      <Clock className="w-3 h-3" /> {service.duration_mins} mins
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="block text-[10px] uppercase tracking-wider text-zinc-600">Total</span>
+                                    <span className={`mt-0.5 block text-xs font-semibold ${isSelected ? 'text-amber-400' : 'text-zinc-300'}`}>
+                                      {formatPrice(service.total_price)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="block text-[10px] uppercase tracking-wider text-zinc-600">Due Now</span>
+                                    <span className={`mt-0.5 block text-xs font-semibold ${isSelected ? 'text-amber-400' : 'text-zinc-300'}`}>
+                                      {formatPrice(service.downpayment_amount)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <p className="mt-2 text-[10px] text-zinc-600">
+                                  Remaining balance after downpayment: {formatPrice(remainingBalance)}
+                                </p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -410,42 +513,47 @@ const BookingFunnel: React.FC = () => {
                     <span className="text-[10px] font-medium text-zinc-500">Today: {formatDate(toLocalISODate(getStartOfToday()))}</span>
                   </div>
                   <div className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-4">
-                    <DayPicker
-                      mode="single"
-                      selected={selectedDateObject}
-                      onSelect={(date) => {
-                        setSelectedDate(date ? toLocalISODate(date) : '');
-                        setSelectedSlot(null);
-                        setAvailabilityError(null);
-                      }}
-                      disabled={{ before: getStartOfToday() }}
-                      weekStartsOn={1}
-                      className="booking-day-picker"
-                      classNames={{
-                        root: 'w-full',
-                        months: 'flex justify-center',
-                        month: 'w-full',
-                        month_caption: 'flex items-center justify-center pb-4',
-                        caption_label: 'text-sm font-bold text-white',
-                        nav: 'flex items-center justify-between mb-2',
-                        button_previous: 'absolute left-4 top-4 h-8 w-8 rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-amber-500/50 hover:text-amber-400 disabled:opacity-30',
-                        button_next: 'absolute right-4 top-4 h-8 w-8 rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-amber-500/50 hover:text-amber-400 disabled:opacity-30',
-                        month_grid: 'w-full border-collapse',
-                        weekdays: 'grid grid-cols-7 mb-2',
-                        weekday: 'text-[11px] font-semibold uppercase text-zinc-500 text-center py-1',
-                        week: 'grid grid-cols-7 gap-1 mb-1',
-                        day: 'aspect-square text-center text-sm',
-                        day_button: 'h-10 w-full rounded-xl text-sm text-zinc-300 transition-all hover:bg-zinc-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40',
-                        selected: 'bg-amber-500/10 text-amber-400',
-                        today: 'text-amber-300',
-                        disabled: 'text-zinc-700 opacity-50',
-                        outside: 'text-zinc-700'
-                      }}
-                      modifiersClassNames={{
-                        selected: 'rounded-xl bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50',
-                        today: 'font-bold'
-                      }}
-                    />
+                      <DayPicker
+                        mode="single"
+                        selected={selectedDateObject}
+                        onSelect={(date) => {
+                          setSelectedDate(date ? toLocalISODate(date) : '');
+                          setSelectedSlot(null);
+                          setSlotOptions([]);
+                          setAvailabilityError(null);
+                        }}
+                        disabled={{ before: getStartOfToday() }}
+                        weekStartsOn={1}
+                        className="booking-day-picker"
+                        modifiers={{
+                          fullyBooked: isSelectedDateFullyBooked ? selectedDateObject : []
+                        }}
+                        classNames={{
+                          root: 'w-full',
+                          months: 'flex justify-center',
+                          month: 'w-full',
+                          month_caption: 'flex items-center justify-center pb-4',
+                          caption_label: 'text-sm font-bold text-white',
+                          nav: 'flex items-center justify-between mb-2',
+                          button_previous: 'absolute left-4 top-4 h-8 w-8 rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-amber-500/50 hover:text-amber-400 disabled:opacity-30',
+                          button_next: 'absolute right-4 top-4 h-8 w-8 rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-amber-500/50 hover:text-amber-400 disabled:opacity-30',
+                          month_grid: 'w-full border-collapse',
+                          weekdays: 'grid grid-cols-7 mb-2',
+                          weekday: 'text-[11px] font-semibold uppercase text-zinc-500 text-center py-1',
+                          week: 'grid grid-cols-7 gap-1 mb-1',
+                          day: 'aspect-square text-center text-sm',
+                          day_button: 'h-10 w-full rounded-xl text-sm text-zinc-300 transition-all hover:bg-zinc-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40',
+                          selected: 'text-amber-300',
+                          today: 'text-amber-300',
+                          disabled: 'text-zinc-700 opacity-50 line-through decoration-red-400 decoration-2',
+                          outside: 'text-zinc-700'
+                        }}
+                        modifiersClassNames={{
+                          selected: 'rounded-xl bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50',
+                          today: 'font-bold',
+                          fullyBooked: 'line-through decoration-red-400 decoration-2'
+                        }}
+                      />
                   </div>
                   {selectedDate && selectedService && (
                     <p className="text-xs text-zinc-500 mt-3">
@@ -468,40 +576,53 @@ const BookingFunnel: React.FC = () => {
                         <div key={i} className="py-2.5 px-2 rounded-xl border border-zinc-900 bg-zinc-950 animate-pulse h-11" />
                       ))}
                     </div>
-                  ) : availabilityError ? (
-                    <div className="p-6 rounded-xl border border-red-500/20 bg-red-500/5 text-center text-red-300 text-sm">
-                      {availabilityError}
-                    </div>
-                  ) : availableSlots.length === 0 ? (
-                    <div className="p-6 rounded-xl border border-zinc-900 bg-zinc-950 text-center text-zinc-500 text-sm">
-                      No slots available for {formatDate(selectedDate)}. Try another date.
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="rounded-xl border border-amber-500/10 bg-amber-500/5 px-4 py-3">
-                        <p className="text-xs text-zinc-400">
-                          {availableSlots.length} available {availableSlots.length === 1 ? 'time' : 'times'} for{' '}
-                          <span className="font-semibold text-amber-400">{formatDate(selectedDate)}</span>
-                        </p>
+                    ) : availabilityError ? (
+                      <div className="p-6 rounded-xl border border-red-500/20 bg-red-500/5 text-center text-red-300 text-sm">
+                        {availabilityError}
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[300px] overflow-y-auto pr-1">
-                        {availableSlots.map((slot, idx) => {
-                          const isSelected = selectedSlot?.start === slot.start;
-                          return (
-                            <button
-                              key={`${slot.start}-${idx}`}
-                              onClick={() => setSelectedSlot(slot)}
-                              className={`py-3 px-2 rounded-xl text-xs font-semibold border text-center transition-all ${
-                                isSelected
-                                  ? 'border-amber-400 bg-amber-500/10 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.1)]'
-                                  : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
-                              }`}
-                            >
-                              <span className="block">{formatTime(slot.start)}</span>
-                              <span className="mt-0.5 block text-[10px] font-normal opacity-70">until {formatTime(slot.end)}</span>
-                            </button>
-                          );
-                        })}
+                    ) : (
+                      <div className="space-y-3">
+                        {isSelectedDateFullyBooked && (
+                          <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-xs text-red-300">
+                            This date has no open slots. Booked and past times are shown with a slash.
+                          </div>
+                        )}
+                        <div className="rounded-xl border border-amber-500/10 bg-amber-500/5 px-4 py-3">
+                          <p className="text-xs text-zinc-400">
+                            {availableSlotCount} available {availableSlotCount === 1 ? 'time' : 'times'} for{' '}
+                            <span className="font-semibold text-amber-400">{formatDate(selectedDate)}</span>
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[300px] overflow-y-auto pr-1">
+                          {slotOptions.map((slot, idx) => {
+                            const isSelected = selectedSlot?.start === slot.start;
+                            return (
+                              <button
+                                type="button"
+                                key={`${slot.start}-${idx}`}
+                                disabled={!slot.available}
+                                onClick={() => {
+                                  if (slot.available) setSelectedSlot(slot);
+                                }}
+                                title={slot.unavailableReason === 'past' ? 'This time has already passed' : slot.unavailableReason === 'booked' ? 'This time is already booked' : 'Available'}
+                                className={`relative min-h-14 overflow-hidden py-3 px-2 rounded-xl text-xs font-semibold border text-center transition-all ${
+                                  isSelected
+                                    ? 'border-amber-400 bg-amber-500/10 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.1)]'
+                                    : !slot.available
+                                    ? 'border-zinc-900 bg-zinc-950 text-zinc-600 cursor-not-allowed'
+                                    : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                                }`}
+                              >
+                                {!slot.available && (
+                                  <span className="pointer-events-none absolute left-1/2 top-1/2 h-[1px] w-[145%] -translate-x-1/2 -translate-y-1/2 rotate-[-18deg] bg-red-500/70" />
+                                )}
+                                <span className="relative block">{formatTime(slot.start)}</span>
+                                <span className="relative mt-0.5 block text-[10px] font-normal opacity-70">
+                                  {slot.available ? `until ${formatTime(slot.end)}` : slot.unavailableReason === 'past' ? 'Passed' : 'Booked'}
+                                </span>
+                              </button>
+                            );
+                          })}
                       </div>
                     </div>
                   )}
@@ -608,7 +729,7 @@ const BookingFunnel: React.FC = () => {
                       </div>
                       <div className="flex justify-between text-xs">
                         <span className="text-zinc-400">Remaining Balance:</span>
-                        <span className="text-zinc-400">{formatPrice(parseFloat(String(selectedService.total_price)) - parseFloat(String(selectedService.downpayment_amount)))}</span>
+                        <span className="text-zinc-400">{formatPrice(parseAmount(selectedService.total_price) - parseAmount(selectedService.downpayment_amount))}</span>
                       </div>
                     </div>
                   </div>
