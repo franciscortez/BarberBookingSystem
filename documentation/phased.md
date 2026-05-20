@@ -62,8 +62,8 @@ This project is a Barber Booking System designed to allow customers to view avai
 
 ### Phase 4: Frontend Setup & UI (React JS)
 - [ ] **Project Initialization:**
-  - [ ] Scaffold React app using Vite (`npm create vite@latest`).
-  - [ ] Install dependencies: `react-router-dom`, Date picker library (e.g., `react-datepicker`), UI framework (e.g., Tailwind CSS or Material UI).
+  - [x] Scaffold React app using Vite (`npm create vite@latest`).
+  - [x] Install dependencies: `react-router-dom`, `lucide-react`, and Tailwind CSS v4.
   - [ ] Configure routing structure (Home, Booking Page, Success Page, Manage Booking Page).
 - [ ] **UI Components:**
   - [ ] Create `Header`/`Navbar` component.
