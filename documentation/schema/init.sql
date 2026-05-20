@@ -87,4 +87,25 @@ CREATE TABLE IF NOT EXISTS Admins (
 DROP TRIGGER IF EXISTS update_admins_updated_at ON Admins;
 CREATE TRIGGER update_admins_updated_at BEFORE UPDATE ON Admins FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
+-- Indexes for performance optimization
+
+-- 1. Optimize customer lookup during rescheduling and cancellation
+CREATE UNIQUE INDEX IF NOT EXISTS idx_appointments_management_token 
+ON Appointments (management_token);
+
+-- 2. Optimize PayMongo checkout webhooks matching payments
+CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_paymongo_checkout_id 
+ON Payments (paymongo_checkout_id) 
+WHERE paymongo_checkout_id IS NOT NULL;
+
+-- 3. Optimize service filtering by barber (used in booking wizards)
+CREATE INDEX IF NOT EXISTS idx_services_barber_id 
+ON Services (barber_id);
+
+-- 4. Partial Index for active appointments availability lookups
+CREATE INDEX IF NOT EXISTS idx_appointments_availability 
+ON Appointments (barber_id, appointment_date, start_time, end_time) 
+WHERE status IN ('pending', 'confirmed');
+
+
 
