@@ -42,7 +42,7 @@ describe('Email service booking management content', () => {
         await sendConfirmationEmail(appointment);
 
         const mailOptions = transporter.sendMail.mock.calls[0][0];
-        expect(mailOptions.html).toContain('Reference Number:');
+        expect(mailOptions.html).toContain('Reference:');
         expect(mailOptions.html).toContain('payref-12345');
     });
 
@@ -50,7 +50,7 @@ describe('Email service booking management content', () => {
         await sendRescheduleConfirmationEmail(appointment);
 
         const mailOptions = transporter.sendMail.mock.calls[0][0];
-        expect(mailOptions.subject).toBe('Booking Rescheduled - Barber Booking System');
+        expect(mailOptions.subject).toBe('Booking Rescheduled - Gentlemen\'s Quarters');
         expect(mailOptions.html).toContain('https://frontend.example.com/reschedule-booking?token=550e8400-e29b-41d4-a716-446655440099');
         expect(mailOptions.html).toContain('https://frontend.example.com/cancel-booking?token=550e8400-e29b-41d4-a716-446655440099');
     });
@@ -59,7 +59,7 @@ describe('Email service booking management content', () => {
         await sendCancellationConfirmationEmail(appointment);
 
         const mailOptions = transporter.sendMail.mock.calls[0][0];
-        expect(mailOptions.subject).toBe('Booking Cancelled - Barber Booking System');
-        expect(mailOptions.html).toContain('cancellation does not refund the down payment');
+        expect(mailOptions.subject).toBe('Booking Cancelled - Gentlemen\'s Quarters');
+        expect(mailOptions.html).toContain('downpayment for this reservation is non-refundable and has been forfeited');
     });
 });

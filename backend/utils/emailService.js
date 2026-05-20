@@ -34,29 +34,34 @@ const sendConfirmationEmail = async (appointment) => {
     const mailOptions = {
         from: process.env.EMAIL_FROM,
         to: customer_email,
-        subject: 'Booking Confirmed - Barber Booking System',
+        subject: 'Booking Confirmed - Gentlemen\'s Quarters',
         html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee;">
-                <h2 style="color: #333;">Booking Confirmed!</h2>
-                <p>Hello ${customer_name},</p>
-                <p>Your appointment has been successfully confirmed. We look forward to seeing you!</p>
-                
-                <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                    <p><strong>Barber:</strong> ${barber_name}</p>
-                    <p><strong>Service:</strong> ${service_name}</p>
-                    <p><strong>Date:</strong> ${appointment_date}</p>
-                    <p><strong>Time:</strong> ${start_time}</p>
-                    <p><strong>Reference Number:</strong> ${payment_reference_number || 'N/A'}</p>
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 40px 20px; background-color: #09090b; color: #f4f4f5; border-radius: 12px; border: 1px solid #27272a;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #fbbf24; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Gentlemen's Quarters</h1>
                 </div>
                 
-                <p>If you need to change your booking, choose one of the options below:</p>
-                <p>
-                    <a href="${rescheduleUrl}" style="background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-right: 10px;">Reschedule</a>
-                    <a href="${cancelUrl}" style="background: #555; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Cancel</a>
-                </p>
+                <h2 style="color: #fafafa; font-size: 22px; margin-top: 0;">Booking Confirmed!</h2>
+                <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Hello ${customer_name},</p>
+                <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Your downpayment has been verified and your premium grooming session has been successfully secured. We look forward to seeing you.</p>
                 
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="font-size: 0.8em; color: #888;">This is an automated message. Please do not reply directly to this email.</p>
+                <div style="background-color: #18181b; padding: 25px; border-radius: 8px; border: 1px solid #27272a; margin: 30px 0;">
+                    <h3 style="color: #fbbf24; margin-top: 0; margin-bottom: 15px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Reservation Details</h3>
+                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Barber:</strong> ${barber_name}</p>
+                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Service:</strong> ${service_name}</p>
+                    <p style="margin: 10px 0; color: #fbbf24;"><strong style="color: #71717a; display: inline-block; width: 100px;">Date:</strong> ${appointment_date}</p>
+                    <p style="margin: 10px 0; color: #fbbf24;"><strong style="color: #71717a; display: inline-block; width: 100px;">Time:</strong> ${start_time}</p>
+                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Reference:</strong> ${payment_reference_number || 'N/A'}</p>
+                </div>
+                
+                <p style="color: #a1a1aa; line-height: 1.6; font-size: 15px; margin-bottom: 20px;">If you need to adjust your schedule, please use your secure management links below:</p>
+                <div style="text-align: center; margin-bottom: 40px;">
+                    <a href="${rescheduleUrl}" style="background: linear-gradient(to right, #fbbf24, #f59e0b); color: #09090b; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; margin: 10px 5px; font-size: 15px;">Reschedule Booking</a>
+                    <a href="${cancelUrl}" style="background-color: transparent; border: 1px solid #3f3f46; color: #d4d4d8; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; margin: 10px 5px; font-size: 15px;">Cancel Booking</a>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid #27272a; margin: 30px 0;">
+                <p style="font-size: 12px; color: #71717a; text-align: center;">This is an automated message from Gentlemen's Quarters. Please do not reply directly to this email.</p>
             </div>
         `
     };
@@ -89,28 +94,33 @@ const sendRescheduleConfirmationEmail = async (appointment) => {
     const mailOptions = {
         from: process.env.EMAIL_FROM,
         to: customer_email,
-        subject: 'Booking Rescheduled - Barber Booking System',
+        subject: 'Booking Rescheduled - Gentlemen\'s Quarters',
         html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee;">
-                <h2 style="color: #333;">Booking Rescheduled</h2>
-                <p>Hello ${customer_name},</p>
-                <p>Your appointment has been rescheduled successfully.</p>
-                
-                <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                    <p><strong>Barber:</strong> ${barber_name}</p>
-                    <p><strong>Service:</strong> ${service_name}</p>
-                    <p><strong>Date:</strong> ${appointment_date}</p>
-                    <p><strong>Time:</strong> ${start_time}</p>
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 40px 20px; background-color: #09090b; color: #f4f4f5; border-radius: 12px; border: 1px solid #27272a;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #fbbf24; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Gentlemen's Quarters</h1>
                 </div>
                 
-                <p>If you need another change, choose one of the options below:</p>
-                <p>
-                    <a href="${rescheduleUrl}" style="background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-right: 10px;">Reschedule</a>
-                    <a href="${cancelUrl}" style="background: #555; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Cancel</a>
-                </p>
+                <h2 style="color: #fafafa; font-size: 22px; margin-top: 0;">Booking Rescheduled</h2>
+                <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Hello ${customer_name},</p>
+                <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Your appointment has been successfully rescheduled. Your new date and time are confirmed.</p>
                 
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="font-size: 0.8em; color: #888;">This is an automated message. Please do not reply directly to this email.</p>
+                <div style="background-color: #18181b; padding: 25px; border-radius: 8px; border: 1px solid #27272a; margin: 30px 0;">
+                    <h3 style="color: #fbbf24; margin-top: 0; margin-bottom: 15px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Updated Details</h3>
+                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Barber:</strong> ${barber_name}</p>
+                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Service:</strong> ${service_name}</p>
+                    <p style="margin: 10px 0; color: #fbbf24;"><strong style="color: #71717a; display: inline-block; width: 100px;">Date:</strong> ${appointment_date}</p>
+                    <p style="margin: 10px 0; color: #fbbf24;"><strong style="color: #71717a; display: inline-block; width: 100px;">Time:</strong> ${start_time}</p>
+                </div>
+                
+                <p style="color: #a1a1aa; line-height: 1.6; font-size: 15px; margin-bottom: 20px;">If you need to make further adjustments, please use your secure management links below:</p>
+                <div style="text-align: center; margin-bottom: 40px;">
+                    <a href="${rescheduleUrl}" style="background: linear-gradient(to right, #fbbf24, #f59e0b); color: #09090b; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; margin: 10px 5px; font-size: 15px;">Reschedule Again</a>
+                    <a href="${cancelUrl}" style="background-color: transparent; border: 1px solid #3f3f46; color: #d4d4d8; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; margin: 10px 5px; font-size: 15px;">Cancel Booking</a>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid #27272a; margin: 30px 0;">
+                <p style="font-size: 12px; color: #71717a; text-align: center;">This is an automated message from Gentlemen's Quarters. Please do not reply directly to this email.</p>
             </div>
         `
     };
@@ -140,24 +150,31 @@ const sendCancellationConfirmationEmail = async (appointment) => {
     const mailOptions = {
         from: process.env.EMAIL_FROM,
         to: customer_email,
-        subject: 'Booking Cancelled - Barber Booking System',
+        subject: 'Booking Cancelled - Gentlemen\'s Quarters',
         html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee;">
-                <h2 style="color: #333;">Booking Cancelled</h2>
-                <p>Hello ${customer_name},</p>
-                <p>Your appointment has been cancelled.</p>
-                
-                <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                    <p><strong>Barber:</strong> ${barber_name}</p>
-                    <p><strong>Service:</strong> ${service_name}</p>
-                    <p><strong>Date:</strong> ${appointment_date}</p>
-                    <p><strong>Time:</strong> ${start_time}</p>
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 40px 20px; background-color: #09090b; color: #f4f4f5; border-radius: 12px; border: 1px solid #27272a;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #fbbf24; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Gentlemen's Quarters</h1>
                 </div>
                 
-                <p>Please note that cancellation does not refund the down payment.</p>
+                <h2 style="color: #ef4444; font-size: 22px; margin-top: 0;">Booking Cancelled</h2>
+                <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Hello ${customer_name},</p>
+                <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">This email confirms that your appointment has been permanently cancelled.</p>
                 
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="font-size: 0.8em; color: #888;">This is an automated message. Please do not reply directly to this email.</p>
+                <div style="background-color: #18181b; padding: 25px; border-radius: 8px; border: 1px solid #450a0a; margin: 30px 0;">
+                    <h3 style="color: #ef4444; margin-top: 0; margin-bottom: 15px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Cancelled Reservation</h3>
+                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Barber:</strong> ${barber_name}</p>
+                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Service:</strong> ${service_name}</p>
+                    <p style="margin: 10px 0; color: #ef4444; text-decoration: line-through;"><strong style="color: #71717a; display: inline-block; width: 100px; text-decoration: none;">Date:</strong> ${appointment_date}</p>
+                    <p style="margin: 10px 0; color: #ef4444; text-decoration: line-through;"><strong style="color: #71717a; display: inline-block; width: 100px; text-decoration: none;">Time:</strong> ${start_time}</p>
+                </div>
+                
+                <div style="background-color: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); padding: 15px; border-radius: 8px;">
+                    <p style="color: #f87171; line-height: 1.6; font-size: 14px; margin: 0;"><strong>Please Note:</strong> As per our policy, the downpayment for this reservation is non-refundable and has been forfeited.</p>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid #27272a; margin: 30px 0;">
+                <p style="font-size: 12px; color: #71717a; text-align: center;">This is an automated message from Gentlemen's Quarters. Please do not reply directly to this email.</p>
             </div>
         `
     };
