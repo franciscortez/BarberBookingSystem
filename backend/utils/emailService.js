@@ -1,12 +1,15 @@
 const transporter = require('../config/email');
 require('dotenv').config();
 
-const buildManagementUrls = (managementToken) => {
-    const baseUrl = process.env.FRONTEND_URL;
+const buildFrontendUrl = (path) => {
+    const baseUrl = (process.env.FRONTEND_URL || '').trim().replace(/\/+$/, '');
+    return `${baseUrl}${path}`;
+};
 
+const buildManagementUrls = (managementToken) => {
     return {
-        rescheduleUrl: `${baseUrl}/reschedule-booking?token=${managementToken}`,
-        cancelUrl: `${baseUrl}/cancel-booking?token=${managementToken}`
+        rescheduleUrl: buildFrontendUrl(`/reschedule-booking?token=${managementToken}`),
+        cancelUrl: buildFrontendUrl(`/cancel-booking?token=${managementToken}`)
     };
 };
 
@@ -22,6 +25,7 @@ const sendConfirmationEmail = async (appointment) => {
         service_name,
         appointment_date,
         start_time,
+        payment_reference_number,
         management_token
     } = appointment;
 
@@ -42,6 +46,7 @@ const sendConfirmationEmail = async (appointment) => {
                     <p><strong>Service:</strong> ${service_name}</p>
                     <p><strong>Date:</strong> ${appointment_date}</p>
                     <p><strong>Time:</strong> ${start_time}</p>
+                    <p><strong>Reference Number:</strong> ${payment_reference_number || 'N/A'}</p>
                 </div>
                 
                 <p>If you need to change your booking, choose one of the options below:</p>

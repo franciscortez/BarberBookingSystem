@@ -162,10 +162,14 @@ const getAppointmentDetails = async (id) => {
             b.name as barber_name,
             s.name as service_name,
             s.total_price,
-            s.downpayment_amount
+            s.downpayment_amount,
+            p.id AS payment_reference_number,
+            p.paymongo_checkout_id,
+            p.paymongo_payment_id
         FROM Appointments a
         JOIN Barbers b ON a.barber_id = b.id
         JOIN Services s ON a.service_id = s.id
+        LEFT JOIN Payments p ON p.appointment_id = a.id
         WHERE a.id = $1
     `;
     const { rows } = await pool.query(query, [id]);

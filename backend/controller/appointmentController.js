@@ -42,6 +42,11 @@ const buildAppointmentEndTime = (appointmentDate, startTime, durationMins) => {
 
 const isConfirmedAppointment = (appointment) => appointment && appointment.status === 'confirmed';
 
+const buildFrontendUrl = (path) => {
+    const baseUrl = (process.env.FRONTEND_URL || '').trim().replace(/\/+$/, '');
+    return `${baseUrl}${path}`;
+};
+
 // Utility to create PayMongo Checkout Session
 const createPayMongoCheckout = async (amount, description, customer_email, customer_name, customer_phone, referenceNumber) => {
     const secretKey = paymongoConfig.secretKey;
@@ -73,6 +78,8 @@ const createPayMongoCheckout = async (amount, description, customer_email, custo
                 ],
                 payment_method_types: ['card', 'gcash', 'paymaya', 'grab_pay'],
                 description: description,
+                success_url: buildFrontendUrl('/success'),
+                cancel_url: buildFrontendUrl('/book'),
                 reference_number: referenceNumber
             }
         }

@@ -22,6 +22,8 @@ describe('Appointment & Payment Integration API Endpoints', () => {
     let createdManagementToken;
 
     beforeAll(async () => {
+        process.env.FRONTEND_URL = 'https://frontend.example.com/';
+
         // 1. Create a test barber
         const barberRes = await pool.query('INSERT INTO Barbers (name) VALUES ($1) RETURNING id', ['Appointment Test Barber']);
         testBarberId = barberRes.rows[0].id;
@@ -97,6 +99,8 @@ describe('Appointment & Payment Integration API Endpoints', () => {
         expect(checkoutRequest.data.attributes.description).toContain('Test Appointment Service');
         expect(checkoutRequest.data.attributes.line_items[0].amount).toBe(10000);
         expect(checkoutRequest.data.attributes.reference_number).toBe(paymentRes.rows[0].id);
+        expect(checkoutRequest.data.attributes.success_url).toBe('https://frontend.example.com/success');
+        expect(checkoutRequest.data.attributes.cancel_url).toBe('https://frontend.example.com/book');
     });
 
     it('POST /api/appointments should return 409 for overlapping slots', async () => {
@@ -216,10 +220,15 @@ describe('Appointment & Payment Integration API Endpoints', () => {
         const appointmentRes = await pool.query('SELECT status FROM Appointments WHERE id = $1', [createdAppointmentId]);
         expect(appointmentRes.rows[0].status).toBe('confirmed');
 
-        const paymentRes = await pool.query('SELECT status, paymongo_payment_id FROM Payments WHERE appointment_id = $1', [createdAppointmentId]);
+        const paymentRes = await pool.query('SELECT id, status, paymongo_payment_id FROM Payments WHERE appointment_id = $1', [createdAppointmentId]);
         expect(paymentRes.rows[0].status).toBe('paid');
         expect(paymentRes.rows[0].paymongo_payment_id).toBe('pay_test123');
         expect(sendConfirmationEmail).toHaveBeenCalledTimes(1);
+        expect(sendConfirmationEmail).toHaveBeenCalledWith(expect.objectContaining({
+            payment_reference_number: paymentRes.rows[0].id,
+            paymongo_checkout_id: 'cs_test_mocked123',
+            paymongo_payment_id: 'pay_test123'
+        }));
     });
 
     it('POST /api/payments/webhook should ignore duplicate successful payment events', async () => {
@@ -264,6 +273,8 @@ describe('Appointment & Payment Integration API Endpoints', () => {
         expect(res.body.id).toBe(createdAppointmentId);
         expect(res.body.status).toBe('confirmed');
         expect(res.body.service_name).toBe('Test Appointment Service');
+        expect(res.body.payment_reference_number).toBeDefined();
+        expect(res.body.paymongo_checkout_id).toBe('cs_test_mocked123');
     });
 
     it('POST /api/appointments/reschedule should move a confirmed booking and send email', async () => {

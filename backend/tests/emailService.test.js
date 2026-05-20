@@ -17,11 +17,12 @@ describe('Email service booking management content', () => {
         service_name: 'Haircut',
         appointment_date: '2027-01-02',
         start_time: '11:00:00',
+        payment_reference_number: 'payref-12345',
         management_token: '550e8400-e29b-41d4-a716-446655440099'
     };
 
     beforeAll(() => {
-        process.env.FRONTEND_URL = 'https://frontend.example.com';
+        process.env.FRONTEND_URL = 'https://frontend.example.com/';
         process.env.EMAIL_FROM = 'bookings@example.com';
     });
 
@@ -35,6 +36,14 @@ describe('Email service booking management content', () => {
         const mailOptions = transporter.sendMail.mock.calls[0][0];
         expect(mailOptions.html).toContain('https://frontend.example.com/reschedule-booking?token=550e8400-e29b-41d4-a716-446655440099');
         expect(mailOptions.html).toContain('https://frontend.example.com/cancel-booking?token=550e8400-e29b-41d4-a716-446655440099');
+    });
+
+    it('includes the payment reference number in the confirmation email', async () => {
+        await sendConfirmationEmail(appointment);
+
+        const mailOptions = transporter.sendMail.mock.calls[0][0];
+        expect(mailOptions.html).toContain('Reference Number:');
+        expect(mailOptions.html).toContain('payref-12345');
     });
 
     it('includes direct management links in the reschedule confirmation email', async () => {
