@@ -3,15 +3,9 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { AlertTriangle, ChevronLeft, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
 import { getManagedBooking, cancelBooking } from '../services/api';
 import type { Appointment } from '../types';
-import { formatDate as formatDateBase, formatTime } from '../utils/booking';
+import { formatDate as formatDateBase, formatOptionalPrice, formatTime } from '../utils/booking';
 
 const formatDate = (dateStr: string): string => formatDateBase(dateStr, true);
-
-const formatPrice = (price: number | string | undefined): string => {
-  if (price === undefined || price === null) return '—';
-  const num = typeof price === 'string' ? parseFloat(price) : price;
-  return `₱${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-};
 
 const CancelBooking: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -125,7 +119,7 @@ const CancelBooking: React.FC = () => {
           <h2 className="text-2xl font-bold text-white">Appointment Cancelled</h2>
           <p className="text-zinc-400 text-sm max-w-sm mx-auto leading-relaxed">
             Your booking has been cancelled. As per our policy, the downpayment of{' '}
-            <strong className="text-red-400">{formatPrice(appointment?.downpayment_amount)}</strong> has been forfeited.
+            <strong className="text-red-400">{formatOptionalPrice(appointment?.downpayment_amount)}</strong> has been forfeited.
             A cancellation notice has been sent to your email.
           </p>
           <Link
@@ -183,7 +177,7 @@ const CancelBooking: React.FC = () => {
             <h4 className="text-xs font-bold text-white uppercase tracking-wider">Non-Refundable Downpayment Policy</h4>
             <p className="text-[11px] text-zinc-400 leading-relaxed mt-1">
               Your downpayment of{' '}
-              <strong className="text-red-400">{formatPrice(appointment?.downpayment_amount)}</strong> will be{' '}
+              <strong className="text-red-400">{formatOptionalPrice(appointment?.downpayment_amount)}</strong> will be{' '}
               <strong>forfeited</strong> upon cancellation and will not be refunded to your card or e-wallet.
             </p>
           </div>

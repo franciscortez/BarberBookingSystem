@@ -12,6 +12,7 @@ const {
     sendRescheduleConfirmationEmail,
     sendCancellationConfirmationEmail
 } = require('../utils/emailService');
+const { flushEmailJobs } = require('../utils/emailQueue');
 const paymongoConfig = require('../config/paymongo');
 
 describe('Appointment & Payment Integration API Endpoints', () => {
@@ -215,6 +216,7 @@ describe('Appointment & Payment Integration API Endpoints', () => {
             .send(payloadBody);
         
         expect(res.statusCode).toEqual(200);
+        await flushEmailJobs();
 
         // Verify status updates in DB
         const appointmentRes = await pool.query('SELECT status FROM Appointments WHERE id = $1', [createdAppointmentId]);
@@ -261,7 +263,58 @@ describe('Appointment & Payment Integration API Endpoints', () => {
             .send(payloadBody);
 
         expect(res.statusCode).toEqual(200);
+        await flushEmailJobs();
         expect(sendConfirmationEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('POST /api/payments/webhook should still succeed if confirmation email fails', async () => {
+        const emailFailureAppointmentRes = await pool.query(`
+            INSERT INTO Appointments
+            (customer_name, customer_phone, customer_email, barber_id, service_id, appointment_date, start_time, end_time, status, management_token)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            RETURNING id
+        `, ['Email Failure Cust', '09123', 'email-failure@test.com', testBarberId, testServiceId, '2027-01-05', '10:00:00', '10:30:00', 'pending', '550e8400-e29b-41d4-a716-446655440020']);
+
+        await pool.query(`
+            INSERT INTO Payments (appointment_id, paymongo_checkout_id, amount, idempotency_key)
+            VALUES ($1, $2, $3, $4)
+        `, [emailFailureAppointmentRes.rows[0].id, 'cs_test_email_failure', 100, '550e8400-e29b-41d4-a716-446655440021']);
+
+        sendConfirmationEmail.mockRejectedValueOnce(new Error('SMTP unavailable'));
+
+        const webhookPayload = {
+            data: {
+                id: 'evt_test_email_failure',
+                attributes: {
+                    type: 'checkout_session.payment.paid',
+                    data: {
+                        id: 'cs_test_email_failure',
+                        type: 'checkout_session',
+                        attributes: {
+                            payments: [{ id: 'pay_email_failure' }]
+                        }
+                    }
+                }
+            }
+        };
+
+        const crypto = require('crypto');
+        const timestamp = Math.floor(Date.now() / 1000);
+        const payloadBody = JSON.stringify(webhookPayload);
+        const payloadStr = timestamp + '.' + payloadBody;
+        const signature = crypto.createHmac('sha256', paymongoConfig.webhookSecret).update(payloadStr).digest('hex');
+
+        const res = await request(app)
+            .post('/api/payments/webhook')
+            .set('paymongo-signature', `t=${timestamp},te=${signature},li=`)
+            .set('Content-Type', 'application/json')
+            .send(payloadBody);
+
+        expect(res.statusCode).toEqual(200);
+        await flushEmailJobs();
+
+        const appointmentRes = await pool.query('SELECT status FROM Appointments WHERE id = $1', [emailFailureAppointmentRes.rows[0].id]);
+        expect(appointmentRes.rows[0].status).toBe('confirmed');
     });
 
     it('GET /api/appointments/manage should return confirmed booking details by token', async () => {
@@ -287,6 +340,7 @@ describe('Appointment & Payment Integration API Endpoints', () => {
             });
 
         expect(res.statusCode).toEqual(200);
+        await flushEmailJobs();
         expect(res.body.message).toBe('Appointment rescheduled successfully');
         expect(res.body.appointment.appointment_date).toMatch(/^2027-01-02/);
         expect(res.body.appointment.start_time).toBe('11:00:00');
@@ -304,6 +358,7 @@ describe('Appointment & Payment Integration API Endpoints', () => {
             });
 
         expect(res.statusCode).toEqual(200);
+        await flushEmailJobs();
         expect(sendRescheduleConfirmationEmail).toHaveBeenCalledTimes(2);
     });
 
@@ -332,12 +387,56 @@ describe('Appointment & Payment Integration API Endpoints', () => {
             .send({ token: createdManagementToken });
 
         expect(res.statusCode).toEqual(200);
+        await flushEmailJobs();
         expect(res.body.message).toBe('Appointment cancelled successfully. Down payment is not refunded.');
         expect(res.body.appointment.status).toBe('cancelled');
         expect(sendCancellationConfirmationEmail).toHaveBeenCalledTimes(1);
 
         const paymentRes = await pool.query('SELECT status FROM Payments WHERE appointment_id = $1', [createdAppointmentId]);
         expect(paymentRes.rows[0].status).toBe('paid');
+    });
+
+    it('POST /api/appointments/reschedule should still succeed if email fails', async () => {
+        const token = '550e8400-e29b-41d4-a716-446655440030';
+        await pool.query(`
+            INSERT INTO Appointments
+            (customer_name, customer_phone, customer_email, barber_id, service_id, appointment_date, start_time, end_time, status, management_token)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `, ['Reschedule Email Failure', '09123', 'reschedule-email-failure@test.com', testBarberId, testServiceId, '2027-01-06', '10:00:00', '10:30:00', 'confirmed', token]);
+
+        sendRescheduleConfirmationEmail.mockRejectedValueOnce(new Error('SMTP unavailable'));
+
+        const res = await request(app)
+            .post('/api/appointments/reschedule')
+            .send({
+                token,
+                appointment_date: '2027-01-06',
+                start_time: '11:00:00'
+            });
+
+        expect(res.statusCode).toEqual(200);
+        await flushEmailJobs();
+        expect(res.body.appointment.appointment_date).toMatch(/^2027-01-06/);
+        expect(res.body.appointment.start_time).toBe('11:00:00');
+    });
+
+    it('POST /api/appointments/cancel should still succeed if email fails', async () => {
+        const token = '550e8400-e29b-41d4-a716-446655440040';
+        await pool.query(`
+            INSERT INTO Appointments
+            (customer_name, customer_phone, customer_email, barber_id, service_id, appointment_date, start_time, end_time, status, management_token)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `, ['Cancel Email Failure', '09123', 'cancel-email-failure@test.com', testBarberId, testServiceId, '2027-01-07', '10:00:00', '10:30:00', 'confirmed', token]);
+
+        sendCancellationConfirmationEmail.mockRejectedValueOnce(new Error('SMTP unavailable'));
+
+        const res = await request(app)
+            .post('/api/appointments/cancel')
+            .send({ token });
+
+        expect(res.statusCode).toEqual(200);
+        await flushEmailJobs();
+        expect(res.body.appointment.status).toBe('cancelled');
     });
 
     it('GET /api/appointments/manage should reject cancelled bookings', async () => {

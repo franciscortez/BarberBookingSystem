@@ -3,11 +3,17 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Scissors, Menu, X, Calendar } from 'lucide-react';
 import { preloadBookingRoute } from '../routes/lazyRoutes';
 
+type HomeSection = 'home' | 'services' | 'team';
+
+const sectionIds: HomeSection[] = ['home', 'services', 'team'];
+
 const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [scrolled, setScrolled] = useState<boolean>(false);
+  const [visibleHomeSection, setVisibleHomeSection] = useState<HomeSection>('home');
   const location = useLocation();
   const navigate = useNavigate();
+  const activeSection = location.pathname === '/' ? visibleHomeSection : null;
 
   // Scroll effect to make navbar more solid on scroll
   useEffect(() => {
@@ -36,6 +42,49 @@ const Navbar: React.FC = () => {
     };
   }, []);
 
+  // Track which home page section is currently under the fixed navbar
+  useEffect(() => {
+    if (location.pathname !== '/') {
+      return;
+    }
+
+    let animationFrameId: number | null = null;
+
+    const updateActiveSection = () => {
+      if (animationFrameId !== null) {
+        return;
+      }
+
+      animationFrameId = window.requestAnimationFrame(() => {
+        const navbarOffset = 120;
+        const scrollPosition = window.scrollY + navbarOffset;
+        let currentSection: HomeSection = 'home';
+
+        sectionIds.forEach(sectionId => {
+          const element = document.getElementById(sectionId);
+          if (element && element.offsetTop <= scrollPosition) {
+            currentSection = sectionId;
+          }
+        });
+
+        setVisibleHomeSection(current => current === currentSection ? current : currentSection);
+        animationFrameId = null;
+      });
+    };
+
+    updateActiveSection();
+    window.addEventListener('scroll', updateActiveSection, { passive: true });
+    window.addEventListener('resize', updateActiveSection);
+
+    return () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+      window.removeEventListener('scroll', updateActiveSection);
+      window.removeEventListener('resize', updateActiveSection);
+    };
+  }, [location.pathname]);
+
   // Handle hash scrolling across routes
   useEffect(() => {
     if (location.hash) {
@@ -44,6 +93,9 @@ const Navbar: React.FC = () => {
       if (element) {
         // Delay slightly to ensure page components are fully mounted
         const timer = setTimeout(() => {
+          if (sectionIds.includes(id as HomeSection)) {
+            setVisibleHomeSection(id as HomeSection);
+          }
           element.scrollIntoView({ behavior: 'smooth' });
         }, 150);
         return () => clearTimeout(timer);
@@ -54,10 +106,12 @@ const Navbar: React.FC = () => {
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => {
     e.preventDefault();
     setIsOpen(false);
+    setVisibleHomeSection(sectionId as HomeSection);
 
     if (location.pathname === '/') {
       const element = document.getElementById(sectionId);
       if (element) {
+        navigate(`/#${sectionId}`);
         element.scrollIntoView({ behavior: 'smooth' });
       }
     } else {
@@ -68,8 +122,10 @@ const Navbar: React.FC = () => {
   const handleHomeClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     setIsOpen(false);
+    setVisibleHomeSection('home');
     
     if (location.pathname === '/') {
+      navigate('/');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       navigate('/');
@@ -104,7 +160,7 @@ const Navbar: React.FC = () => {
             to="/" 
             onClick={handleHomeClick}
             className={`text-sm font-medium transition-colors duration-300 ${
-              location.pathname === '/' && !location.hash 
+              activeSection === 'home'
                 ? 'text-amber-400' 
                 : 'text-zinc-400 hover:text-white'
             }`}
@@ -115,7 +171,7 @@ const Navbar: React.FC = () => {
             href="#services" 
             onClick={(e) => handleNavClick(e, 'services')}
             className={`text-sm font-medium transition-colors duration-300 ${
-              location.hash === '#services' 
+              activeSection === 'services'
                 ? 'text-amber-400' 
                 : 'text-zinc-400 hover:text-white'
             }`}
@@ -126,7 +182,7 @@ const Navbar: React.FC = () => {
             href="#team" 
             onClick={(e) => handleNavClick(e, 'team')}
             className={`text-sm font-medium transition-colors duration-300 ${
-              location.hash === '#team' 
+              activeSection === 'team'
                 ? 'text-amber-400' 
                 : 'text-zinc-400 hover:text-white'
             }`}
@@ -165,7 +221,7 @@ const Navbar: React.FC = () => {
               to="/" 
               onClick={handleHomeClick}
               className={`text-sm font-medium py-1.5 transition-colors ${
-                location.pathname === '/' && !location.hash ? 'text-amber-400' : 'text-zinc-400'
+                activeSection === 'home' ? 'text-amber-400' : 'text-zinc-400'
               }`}
             >
               Home
@@ -174,7 +230,7 @@ const Navbar: React.FC = () => {
               href="#services" 
               onClick={(e) => handleNavClick(e, 'services')}
               className={`text-sm font-medium py-1.5 transition-colors ${
-                location.hash === '#services' ? 'text-amber-400' : 'text-zinc-400'
+                activeSection === 'services' ? 'text-amber-400' : 'text-zinc-400'
               }`}
             >
               Services
@@ -183,7 +239,7 @@ const Navbar: React.FC = () => {
               href="#team" 
               onClick={(e) => handleNavClick(e, 'team')}
               className={`text-sm font-medium py-1.5 transition-colors ${
-                location.hash === '#team' ? 'text-amber-400' : 'text-zinc-400'
+                activeSection === 'team' ? 'text-amber-400' : 'text-zinc-400'
               }`}
             >
               Team

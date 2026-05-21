@@ -19,6 +19,35 @@ type CacheEntry<T> = {
 const responseCache = new Map<string, CacheEntry<unknown>>();
 const pendingGets = new Map<string, Promise<unknown>>();
 
+const createAbortError = () => new DOMException('The operation was aborted.', 'AbortError');
+
+const withoutSignal = (options: RequestInit): RequestInit => {
+  const optionsWithoutSignal = { ...options };
+  delete optionsWithoutSignal.signal;
+  return optionsWithoutSignal;
+};
+
+const withAbortSignal = <T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> => {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(createAbortError());
+
+  return new Promise<T>((resolve, reject) => {
+    const handleAbort = () => reject(createAbortError());
+    signal.addEventListener('abort', handleAbort, { once: true });
+
+    promise.then(
+      data => {
+        signal.removeEventListener('abort', handleAbort);
+        resolve(data);
+      },
+      error => {
+        signal.removeEventListener('abort', handleAbort);
+        reject(error);
+      }
+    );
+  });
+};
+
 const buildUrl = (path: string): string => {
   if (!API_BASE_URL) {
     throw new Error('VITE_API_URL is not configured');
@@ -50,7 +79,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const method = (fetchOptions.method ?? 'GET').toString().toUpperCase();
   const url = buildUrl(path);
   const key = cacheKey ?? `${method}:${url}`;
-  const canDedupe = !fetchOptions.signal;
+  const isCacheableGet = method === 'GET' && cacheTtlMs !== undefined;
 
   if (method === 'GET') {
     const cached = responseCache.get(key) as CacheEntry<T> | undefined;
@@ -66,14 +95,17 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       staleWhileRevalidateMs !== undefined &&
       now - cached.timestamp < cacheTtlMs + staleWhileRevalidateMs
     ) {
-      void request<T>(path, { ...fetchOptions, cacheKey: key, cacheTtlMs });
+      if (!pendingGets.has(key)) {
+        void request<T>(path, { ...withoutSignal(fetchOptions), cacheKey: key, cacheTtlMs });
+      }
       return cached.data;
     }
 
-    const pending = canDedupe ? pendingGets.get(key) as Promise<T> | undefined : undefined;
-    if (pending) return pending;
+    const pending = isCacheableGet ? pendingGets.get(key) as Promise<T> | undefined : undefined;
+    if (pending) return withAbortSignal(pending, fetchOptions.signal ?? undefined);
 
-    const promise = fetch(url, fetchOptions)
+    const requestOptions = isCacheableGet ? withoutSignal(fetchOptions) : fetchOptions;
+    const promise = fetch(url, requestOptions)
       .then(response => handleResponse<T>(response))
       .then(data => {
         if (cacheTtlMs !== undefined) {
@@ -85,8 +117,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
         pendingGets.delete(key);
       });
 
-    if (canDedupe) {
+    if (isCacheableGet) {
       pendingGets.set(key, promise);
+      return withAbortSignal(promise, fetchOptions.signal ?? undefined);
     }
     return promise;
   }

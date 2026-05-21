@@ -15,6 +15,10 @@ export const formatPrice = (price: number | string): string => {
   return `₱${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
+export const formatOptionalPrice = (price: number | string | undefined | null): string => {
+  return price === undefined || price === null ? '—' : formatPrice(price);
+};
+
 export const formatTime = (time: string): string => {
   const [hours, minutes] = time.split(':');
   const h = parseInt(hours, 10);

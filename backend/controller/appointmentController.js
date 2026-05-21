@@ -4,10 +4,7 @@ const Service = require('../model/Service');
 const crypto = require('crypto');
 const paymongoConfig = require('../config/paymongo');
 const pool = require('../config/database');
-const {
-    sendRescheduleConfirmationEmail,
-    sendCancellationConfirmationEmail
-} = require('../utils/emailService');
+const { enqueueEmailJob } = require('../utils/emailQueue');
 
 const appointmentDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 const startTimePattern = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
@@ -327,7 +324,7 @@ const rescheduleBooking = async (req, res) => {
 
         const fullDetails = await Appointment.getAppointmentDetails(updatedAppointment.id);
         if (fullDetails) {
-            await sendRescheduleConfirmationEmail(fullDetails);
+            enqueueEmailJob('rescheduleConfirmation', fullDetails);
         }
 
         return res.json({
@@ -379,7 +376,7 @@ const cancelBooking = async (req, res) => {
 
         const fullDetails = await Appointment.getAppointmentDetails(updatedAppointment.id);
         if (fullDetails) {
-            await sendCancellationConfirmationEmail(fullDetails);
+            enqueueEmailJob('cancellationConfirmation', fullDetails);
         }
 
         return res.json({

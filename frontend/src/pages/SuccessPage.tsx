@@ -3,15 +3,9 @@ import { Link } from 'react-router-dom';
 import { CheckCircle2, Loader2, Mail, MapPin, ArrowRight, AlertTriangle } from 'lucide-react';
 import { getManagedBooking } from '../services/api';
 import type { Appointment } from '../types';
-import { formatDate as formatDateBase, formatTime } from '../utils/booking';
+import { formatDate as formatDateBase, formatOptionalPrice, formatTime } from '../utils/booking';
 
 const formatDate = (dateStr: string): string => formatDateBase(dateStr, true);
-
-const formatPrice = (price: number | string | undefined): string => {
-  if (price === undefined || price === null) return '—';
-  const num = typeof price === 'string' ? parseFloat(price) : price;
-  return `₱${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-};
 
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLLS = 40; // ~2 minutes
@@ -183,7 +177,7 @@ const SuccessPage: React.FC = () => {
             <span className="text-zinc-200 font-medium">{appointment?.customer_name ?? '—'}</span>
 
             <span className="text-zinc-400">Downpayment:</span>
-            <span className="text-zinc-200 font-medium">{formatPrice(appointment?.downpayment_amount)}</span>
+            <span className="text-zinc-200 font-medium">{formatOptionalPrice(appointment?.downpayment_amount)}</span>
           </div>
 
           <div className="border-t border-zinc-900 pt-3 flex gap-2 items-center text-xs text-zinc-500">
