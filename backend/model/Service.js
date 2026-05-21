@@ -1,23 +1,34 @@
 const pool = require('../config/database');
 
 /**
- * Fetch all services from the database
+ * Fetch all services from the database with barber details
  * @returns {Promise<Array>} List of services
  */
 const getAllServices = async () => {
-    const query = 'SELECT * FROM Services ORDER BY name ASC';
+    const query = `
+        SELECT s.*, b.name as barber_name 
+        FROM Services s
+        JOIN Barbers b ON s.barber_id = b.id
+        ORDER BY s.name ASC
+    `;
     const { rows } = await pool.query(query);
 
     return rows;
 };
 
 /**
- * Fetch services for a specific barber
+ * Fetch services for a specific barber with barber details
  * @param {string} barberId - UUID of the barber
  * @returns {Promise<Array>} List of services
  */
 const getServicesByBarber = async (barberId) => {
-    const query = 'SELECT * FROM Services WHERE barber_id = $1 ORDER BY name ASC';
+    const query = `
+        SELECT s.*, b.name as barber_name 
+        FROM Services s
+        JOIN Barbers b ON s.barber_id = b.id
+        WHERE s.barber_id = $1 
+        ORDER BY s.name ASC
+    `;
     const { rows } = await pool.query(query, [barberId]);
 
     return rows;

@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const Payment = require('../model/Payment');
 const Appointment = require('../model/Appointment');
 const paymongoConfig = require('../config/paymongo');
-const { sendConfirmationEmail } = require('../utils/emailService');
+const { enqueueEmailJob } = require('../utils/emailQueue');
 
 const parseSignatureHeader = (signatureHeader) => {
     return signatureHeader.split(',').reduce((acc, part) => {
@@ -115,7 +115,7 @@ const handleWebhook = async (req, res) => {
 
                     const fullDetails = await Appointment.getAppointmentDetails(payment.appointment_id);
                     if (fullDetails) {
-                        await sendConfirmationEmail(fullDetails);
+                        enqueueEmailJob('bookingConfirmation', fullDetails);
                     }
                 }
             } else {

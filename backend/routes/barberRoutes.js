@@ -9,10 +9,11 @@ const {
 } = require('../controller/barberController');
 
 const authMiddleware = require('../middleware/authMiddleware');
+const { catalogReadLimiter } = require('../middleware/rateLimiters');
 
 // Barber endpoints
-router.get('/', getBarbers);
-router.get('/:id', getBarber);
+router.get('/', catalogReadLimiter, getBarbers);
+router.get('/:id', catalogReadLimiter, getBarber);
 
 // Protected routes
 router.post('/', authMiddleware, addBarber);

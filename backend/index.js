@@ -8,15 +8,53 @@ const serviceRoutes = require('./routes/serviceRoutes');
 const availabilityRoutes = require('./routes/availabilityRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const catalogRoutes = require('./routes/catalogRoutes');
+const { generalApiLimiterFallback } = require('./middleware/rateLimiters');
 
 const app = express();
 const PORT = process.env.PORT;
+
+if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+}
 
 app.use(cors());
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
+app.use((req, res, next) => {
+    if (req.method === 'GET' && (
+        req.path === '/api/catalog' ||
+        req.path.startsWith('/api/barbers') ||
+        req.path.startsWith('/api/services')
+    )) {
+        res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    } else if (
+        req.path.startsWith('/api/availability') ||
+        req.path.startsWith('/api/appointments') ||
+        req.path.startsWith('/api/payments') ||
+        req.path.startsWith('/api/auth')
+    ) {
+        res.set('Cache-Control', 'no-store');
+    }
+
+    next();
+});
+
+if (process.env.NODE_ENV !== 'production') {
+    app.use((req, res, next) => {
+        const start = process.hrtime.bigint();
+        res.on('finish', () => {
+            const durationMs = Number(process.hrtime.bigint() - start) / 1e6;
+            console.log(`${req.method} ${req.path} ${res.statusCode} ${durationMs.toFixed(1)}ms`);
+        });
+        next();
+    });
+}
+
 // Routes
+app.use('/api', generalApiLimiterFallback);
+app.use('/api/catalog', catalogRoutes);
 app.use('/api/barbers', barberRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/services', serviceRoutes);
