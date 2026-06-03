@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const pool = require('./config/database');
+const { buildCorsOptions } = require('./config/cors');
 const barberRoutes = require('./routes/barberRoutes');
 const authRoutes = require('./routes/authRoutes');
 const serviceRoutes = require('./routes/serviceRoutes');
@@ -18,7 +19,7 @@ if (process.env.NODE_ENV === 'production') {
     app.set('trust proxy', 1);
 }
 
-app.use(cors());
+app.use(cors(buildCorsOptions()));
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 

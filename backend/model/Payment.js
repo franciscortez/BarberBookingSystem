@@ -26,9 +26,13 @@ const createPayment = async (paymentData, client = pool) => {
  * @param {string} id 
  * @returns {Promise<Object|null>}
  */
-const getPaymentById = async (id) => {
-    const query = 'SELECT * FROM Payments WHERE id = $1';
-    const { rows } = await pool.query(query, [id]);
+const getPaymentById = async (id, client = pool, forUpdate = false) => {
+    const query = `
+        SELECT * FROM Payments
+        WHERE id = $1
+        ${forUpdate ? 'FOR UPDATE' : ''}
+    `;
+    const { rows } = await client.query(query, [id]);
     return rows[0] || null;
 };
 
@@ -37,9 +41,13 @@ const getPaymentById = async (id) => {
  * @param {string} checkoutId 
  * @returns {Promise<Object|null>}
  */
-const getPaymentByCheckoutId = async (checkoutId) => {
-    const query = 'SELECT * FROM Payments WHERE paymongo_checkout_id = $1';
-    const { rows } = await pool.query(query, [checkoutId]);
+const getPaymentByCheckoutId = async (checkoutId, client = pool, forUpdate = false) => {
+    const query = `
+        SELECT * FROM Payments
+        WHERE paymongo_checkout_id = $1
+        ${forUpdate ? 'FOR UPDATE' : ''}
+    `;
+    const { rows } = await client.query(query, [checkoutId]);
     return rows[0] || null;
 };
 
@@ -49,7 +57,7 @@ const getPaymentByCheckoutId = async (checkoutId) => {
  * @param {Object} updateData - { paymongo_checkout_id, paymongo_payment_id, status }
  * @returns {Promise<Object|null>}
  */
-const updatePayment = async (id, updateData) => {
+const updatePayment = async (id, updateData, client = pool) => {
     const { paymongo_checkout_id, paymongo_payment_id, status } = updateData;
     
     let query = 'UPDATE Payments SET updated_at = CURRENT_TIMESTAMP';
@@ -72,7 +80,7 @@ const updatePayment = async (id, updateData) => {
     query += ` WHERE id = $${paramCount} RETURNING *`;
     values.push(id);
 
-    const { rows } = await pool.query(query, values);
+    const { rows } = await client.query(query, values);
     return rows[0] || null;
 };
 

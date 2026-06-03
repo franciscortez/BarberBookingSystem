@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const paymongoConfig = require('../config/paymongo');
 const pool = require('../config/database');
 const { enqueueEmailJob } = require('../utils/emailQueue');
+const { validateBookableSlot } = require('../utils/bookingRules');
 
 const appointmentDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 const startTimePattern = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
@@ -45,7 +46,7 @@ const buildFrontendUrl = (path) => {
 };
 
 // Utility to create PayMongo Checkout Session
-const createPayMongoCheckout = async (amount, description, customer_email, customer_name, customer_phone, referenceNumber) => {
+const createPayMongoCheckout = async (amount, description, customer_email, customer_name, customer_phone, referenceNumber, managementToken) => {
     const secretKey = paymongoConfig.secretKey;
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
@@ -75,7 +76,7 @@ const createPayMongoCheckout = async (amount, description, customer_email, custo
                 ],
                 payment_method_types: ['card', 'gcash', 'paymaya', 'grab_pay'],
                 description: description,
-                success_url: buildFrontendUrl('/success'),
+                success_url: buildFrontendUrl(`/success?token=${encodeURIComponent(managementToken)}`),
                 cancel_url: buildFrontendUrl('/book'),
                 reference_number: referenceNumber
             }
@@ -140,6 +141,15 @@ const createBooking = async (req, res) => {
             return res.status(400).json({ error: 'Invalid appointment date or start time' });
         }
 
+        const slotValidation = validateBookableSlot({
+            appointmentDate: appointment_date,
+            startTime: start_time,
+            durationMins
+        });
+        if (!slotValidation.valid) {
+            return res.status(400).json({ error: slotValidation.error });
+        }
+
         // Acquire a database client for the transaction
         const client = await pool.connect();
         let newAppointment, newPayment, checkoutSession;
@@ -200,7 +210,8 @@ const createBooking = async (req, res) => {
                 customer_email,
                 customer_name,
                 customer_phone,
-                newPayment.id
+                newPayment.id,
+                newAppointment.management_token
             );
 
             // 7. Update Payment record with checkout ID
@@ -296,6 +307,16 @@ const rescheduleBooking = async (req, res) => {
         if (!end_time) {
             await client.query('ROLLBACK');
             return res.status(400).json({ error: 'Invalid appointment date or start time' });
+        }
+
+        const slotValidation = validateBookableSlot({
+            appointmentDate: appointment_date,
+            startTime: start_time,
+            durationMins: service.duration_mins
+        });
+        if (!slotValidation.valid) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: slotValidation.error });
         }
 
         await Appointment.lockBarber(appointment.barber_id, client);

@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { getPendingHoldMinutes, activeAppointmentStatusSql } = require('../utils/bookingRules');
 
 /**
  * Fetch occupied time slots for a barber on a specific date
@@ -12,9 +13,9 @@ const getOccupiedSlots = async (barberId, date) => {
         FROM Appointments 
         WHERE barber_id = $1 
         AND appointment_date = $2 
-        AND status IN ('pending', 'confirmed')
+        AND ${activeAppointmentStatusSql('$3')}
     `;
-    const { rows } = await pool.query(query, [barberId, date]);
+    const { rows } = await pool.query(query, [barberId, date, getPendingHoldMinutes()]);
     return rows;
 }; 
 

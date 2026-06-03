@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Loader2, Mail, MapPin, ArrowRight, AlertTriangle } from 'lucide-react';
 import { getManagedBooking } from '../services/api';
 import type { Appointment } from '../types';
@@ -11,7 +11,9 @@ const POLL_INTERVAL_MS = 3000;
 const MAX_POLLS = 40; // ~2 minutes
 
 const SuccessPage: React.FC = () => {
-  const [pendingBookingToken] = useState<string | null>(() => sessionStorage.getItem('pendingBookingToken'));
+  const [searchParams] = useSearchParams();
+  const urlToken = searchParams.get('token');
+  const [pendingBookingToken] = useState<string | null>(() => urlToken || sessionStorage.getItem('pendingBookingToken'));
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [verified, setVerified] = useState<boolean>(false);
   const [timedOut, setTimedOut] = useState<boolean>(false);

@@ -38,6 +38,23 @@ describe('Email service booking management content', () => {
         expect(mailOptions.html).toContain('https://frontend.example.com/cancel-booking?token=550e8400-e29b-41d4-a716-446655440099');
     });
 
+    it('escapes customer-controlled values in confirmation email HTML', async () => {
+        await sendConfirmationEmail({
+            ...appointment,
+            customer_name: '<img src=x onerror=alert(1)>',
+            barber_name: 'A & B',
+            service_name: '"Premium" Cut',
+            payment_reference_number: "ref-'123"
+        });
+
+        const mailOptions = transporter.sendMail.mock.calls[0][0];
+        expect(mailOptions.html).not.toContain('<img src=x onerror=alert(1)>');
+        expect(mailOptions.html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+        expect(mailOptions.html).toContain('A &amp; B');
+        expect(mailOptions.html).toContain('&quot;Premium&quot; Cut');
+        expect(mailOptions.html).toContain('ref-&#39;123');
+    });
+
     it('includes the payment reference number in the confirmation email', async () => {
         await sendConfirmationEmail(appointment);
 

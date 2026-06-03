@@ -70,6 +70,38 @@ describe('Availability API Endpoints', () => {
         expect(nineSlot.available).toBe(true);
     });
 
+    it('GET /api/availability should ignore expired pending appointments', async () => {
+        await pool.query(`
+            INSERT INTO Appointments
+            (customer_name, customer_phone, customer_email, barber_id, service_id, appointment_date, start_time, end_time, status, management_token, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP - INTERVAL '16 minutes')
+        `, ['Expired Pending', '09123', 'expired@test.com', barberId, serviceId, testDate, '12:00:00', '13:00:00', 'pending', '550e8400-e29b-41d4-a716-446655440100']);
+
+        const res = await request(app)
+            .get('/api/availability')
+            .query({ barberId, date: testDate, serviceId });
+
+        expect(res.statusCode).toEqual(200);
+        expect(res.body.availableSlots.some(slot => slot.start === '12:00')).toBe(true);
+        expect(res.body.slots.find(slot => slot.start === '12:00').available).toBe(true);
+    });
+
+    it('GET /api/availability should keep fresh pending appointments unavailable', async () => {
+        await pool.query(`
+            INSERT INTO Appointments
+            (customer_name, customer_phone, customer_email, barber_id, service_id, appointment_date, start_time, end_time, status, management_token)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `, ['Fresh Pending', '09123', 'fresh@test.com', barberId, serviceId, testDate, '13:00:00', '14:00:00', 'pending', '550e8400-e29b-41d4-a716-446655440101']);
+
+        const res = await request(app)
+            .get('/api/availability')
+            .query({ barberId, date: testDate, serviceId });
+
+        expect(res.statusCode).toEqual(200);
+        expect(res.body.availableSlots.some(slot => slot.start === '13:00')).toBe(false);
+        expect(res.body.slots.find(slot => slot.start === '13:00').available).toBe(false);
+    });
+
     it('GET /api/availability should return 400 if params missing', async () => {
         const res = await request(app).get('/api/availability');
         expect(res.statusCode).toEqual(400);

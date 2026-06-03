@@ -107,6 +107,8 @@ This project is a Barber Booking System designed to allow customers to view avai
 
 ### Phase 6: Admin Panel & Management
 
+> Status note: the current production-ready surface is the customer booking flow. Admin authentication plus barber/service CRUD exist on the backend, but the appointment dashboard endpoint and React admin UI are intentionally deferred until the admin workflow is designed and implemented as a separate feature slice.
+
 - [x] **Admin Database & Auth:**
   - [x] Define `Admins` table schema in `init.sql` (id, username, password_hash, created_at).
   - [x] Implement basic JWT authentication for admin routes.

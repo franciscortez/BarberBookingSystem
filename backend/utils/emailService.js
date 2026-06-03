@@ -6,10 +6,22 @@ const buildFrontendUrl = (path) => {
     return `${baseUrl}${path}`;
 };
 
+const escapeHtml = (value) => {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+};
+
 const buildManagementUrls = (managementToken) => {
+    const encodedToken = encodeURIComponent(managementToken);
+
     return {
-        rescheduleUrl: buildFrontendUrl(`/reschedule-booking?token=${managementToken}`),
-        cancelUrl: buildFrontendUrl(`/cancel-booking?token=${managementToken}`)
+        rescheduleUrl: buildFrontendUrl(`/reschedule-booking?token=${encodedToken}`),
+        cancelUrl: buildFrontendUrl(`/cancel-booking?token=${encodedToken}`)
     };
 };
 
@@ -30,6 +42,12 @@ const sendConfirmationEmail = async (appointment) => {
     } = appointment;
 
     const { rescheduleUrl, cancelUrl } = buildManagementUrls(management_token);
+    const safeCustomerName = escapeHtml(customer_name);
+    const safeBarberName = escapeHtml(barber_name);
+    const safeServiceName = escapeHtml(service_name);
+    const safeAppointmentDate = escapeHtml(appointment_date);
+    const safeStartTime = escapeHtml(start_time);
+    const safePaymentReferenceNumber = payment_reference_number ? escapeHtml(payment_reference_number) : 'N/A';
 
     const mailOptions = {
         from: process.env.EMAIL_FROM,
@@ -42,16 +60,16 @@ const sendConfirmationEmail = async (appointment) => {
                 </div>
                 
                 <h2 style="color: #fafafa; font-size: 22px; margin-top: 0;">Booking Confirmed!</h2>
-                <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Hello ${customer_name},</p>
+                <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Hello ${safeCustomerName},</p>
                 <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Your downpayment has been verified and your premium grooming session has been successfully secured. We look forward to seeing you.</p>
                 
                 <div style="background-color: #18181b; padding: 25px; border-radius: 8px; border: 1px solid #27272a; margin: 30px 0;">
                     <h3 style="color: #fbbf24; margin-top: 0; margin-bottom: 15px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Reservation Details</h3>
-                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Barber:</strong> ${barber_name}</p>
-                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Service:</strong> ${service_name}</p>
-                    <p style="margin: 10px 0; color: #fbbf24;"><strong style="color: #71717a; display: inline-block; width: 100px;">Date:</strong> ${appointment_date}</p>
-                    <p style="margin: 10px 0; color: #fbbf24;"><strong style="color: #71717a; display: inline-block; width: 100px;">Time:</strong> ${start_time}</p>
-                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Reference:</strong> ${payment_reference_number || 'N/A'}</p>
+                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Barber:</strong> ${safeBarberName}</p>
+                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Service:</strong> ${safeServiceName}</p>
+                    <p style="margin: 10px 0; color: #fbbf24;"><strong style="color: #71717a; display: inline-block; width: 100px;">Date:</strong> ${safeAppointmentDate}</p>
+                    <p style="margin: 10px 0; color: #fbbf24;"><strong style="color: #71717a; display: inline-block; width: 100px;">Time:</strong> ${safeStartTime}</p>
+                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Reference:</strong> ${safePaymentReferenceNumber}</p>
                 </div>
                 
                 <p style="color: #a1a1aa; line-height: 1.6; font-size: 15px; margin-bottom: 20px;">If you need to adjust your schedule, please use your secure management links below:</p>
@@ -90,6 +108,11 @@ const sendRescheduleConfirmationEmail = async (appointment) => {
         management_token
     } = appointment;
     const { rescheduleUrl, cancelUrl } = buildManagementUrls(management_token);
+    const safeCustomerName = escapeHtml(customer_name);
+    const safeBarberName = escapeHtml(barber_name);
+    const safeServiceName = escapeHtml(service_name);
+    const safeAppointmentDate = escapeHtml(appointment_date);
+    const safeStartTime = escapeHtml(start_time);
 
     const mailOptions = {
         from: process.env.EMAIL_FROM,
@@ -102,15 +125,15 @@ const sendRescheduleConfirmationEmail = async (appointment) => {
                 </div>
                 
                 <h2 style="color: #fafafa; font-size: 22px; margin-top: 0;">Booking Rescheduled</h2>
-                <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Hello ${customer_name},</p>
+                <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Hello ${safeCustomerName},</p>
                 <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Your appointment has been successfully rescheduled. Your new date and time are confirmed.</p>
                 
                 <div style="background-color: #18181b; padding: 25px; border-radius: 8px; border: 1px solid #27272a; margin: 30px 0;">
                     <h3 style="color: #fbbf24; margin-top: 0; margin-bottom: 15px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Updated Details</h3>
-                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Barber:</strong> ${barber_name}</p>
-                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Service:</strong> ${service_name}</p>
-                    <p style="margin: 10px 0; color: #fbbf24;"><strong style="color: #71717a; display: inline-block; width: 100px;">Date:</strong> ${appointment_date}</p>
-                    <p style="margin: 10px 0; color: #fbbf24;"><strong style="color: #71717a; display: inline-block; width: 100px;">Time:</strong> ${start_time}</p>
+                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Barber:</strong> ${safeBarberName}</p>
+                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Service:</strong> ${safeServiceName}</p>
+                    <p style="margin: 10px 0; color: #fbbf24;"><strong style="color: #71717a; display: inline-block; width: 100px;">Date:</strong> ${safeAppointmentDate}</p>
+                    <p style="margin: 10px 0; color: #fbbf24;"><strong style="color: #71717a; display: inline-block; width: 100px;">Time:</strong> ${safeStartTime}</p>
                 </div>
                 
                 <p style="color: #a1a1aa; line-height: 1.6; font-size: 15px; margin-bottom: 20px;">If you need to make further adjustments, please use your secure management links below:</p>
@@ -146,6 +169,11 @@ const sendCancellationConfirmationEmail = async (appointment) => {
         appointment_date,
         start_time
     } = appointment;
+    const safeCustomerName = escapeHtml(customer_name);
+    const safeBarberName = escapeHtml(barber_name);
+    const safeServiceName = escapeHtml(service_name);
+    const safeAppointmentDate = escapeHtml(appointment_date);
+    const safeStartTime = escapeHtml(start_time);
 
     const mailOptions = {
         from: process.env.EMAIL_FROM,
@@ -158,15 +186,15 @@ const sendCancellationConfirmationEmail = async (appointment) => {
                 </div>
                 
                 <h2 style="color: #ef4444; font-size: 22px; margin-top: 0;">Booking Cancelled</h2>
-                <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Hello ${customer_name},</p>
+                <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Hello ${safeCustomerName},</p>
                 <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">This email confirms that your appointment has been permanently cancelled.</p>
                 
                 <div style="background-color: #18181b; padding: 25px; border-radius: 8px; border: 1px solid #450a0a; margin: 30px 0;">
                     <h3 style="color: #ef4444; margin-top: 0; margin-bottom: 15px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Cancelled Reservation</h3>
-                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Barber:</strong> ${barber_name}</p>
-                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Service:</strong> ${service_name}</p>
-                    <p style="margin: 10px 0; color: #ef4444; text-decoration: line-through;"><strong style="color: #71717a; display: inline-block; width: 100px; text-decoration: none;">Date:</strong> ${appointment_date}</p>
-                    <p style="margin: 10px 0; color: #ef4444; text-decoration: line-through;"><strong style="color: #71717a; display: inline-block; width: 100px; text-decoration: none;">Time:</strong> ${start_time}</p>
+                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Barber:</strong> ${safeBarberName}</p>
+                    <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 100px;">Service:</strong> ${safeServiceName}</p>
+                    <p style="margin: 10px 0; color: #ef4444; text-decoration: line-through;"><strong style="color: #71717a; display: inline-block; width: 100px; text-decoration: none;">Date:</strong> ${safeAppointmentDate}</p>
+                    <p style="margin: 10px 0; color: #ef4444; text-decoration: line-through;"><strong style="color: #71717a; display: inline-block; width: 100px; text-decoration: none;">Time:</strong> ${safeStartTime}</p>
                 </div>
                 
                 <div style="background-color: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); padding: 15px; border-radius: 8px;">

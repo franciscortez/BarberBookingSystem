@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { getPendingHoldMinutes, activeAppointmentStatusSql } = require('../utils/bookingRules');
 
 /**
  * Create a new appointment (status defaults to 'pending')
@@ -42,9 +43,13 @@ const createAppointment = async (appointmentData, client = pool) => {
  * @param {string} id 
  * @returns {Promise<Object|null>}
  */
-const getAppointmentById = async (id) => {
-    const query = 'SELECT * FROM Appointments WHERE id = $1';
-    const { rows } = await pool.query(query, [id]);
+const getAppointmentById = async (id, client = pool, forUpdate = false) => {
+    const query = `
+        SELECT * FROM Appointments
+        WHERE id = $1
+        ${forUpdate ? 'FOR UPDATE' : ''}
+    `;
+    const { rows } = await client.query(query, [id]);
     return rows[0] || null;
 };
 
@@ -112,16 +117,16 @@ const isSlotAvailable = async (barberId, date, startTime, endTime, client = pool
         SELECT 1 FROM Appointments
         WHERE barber_id = $1
         AND appointment_date = $2
-        AND status IN ('pending', 'confirmed')
+        AND ${activeAppointmentStatusSql('$5')}
         AND (
             (start_time < $4 AND end_time > $3)
         )
     `;
-    const values = [barberId, date, startTime, endTime];
+    const values = [barberId, date, startTime, endTime, getPendingHoldMinutes()];
 
     if (excludeAppointmentId) {
         values.push(excludeAppointmentId);
-        query += ' AND id <> $5';
+        query += ' AND id <> $6';
     }
 
     const { rows } = await client.query(query, values);
