@@ -1,14 +1,14 @@
 const pool = require('../config/database');
+const db = pool.db;
+const { barbers } = require('../config/db/schema');
+const { eq, asc, sql } = require('drizzle-orm');
 
 /**
  * Fetch all barbers from the database
  * @returns {Promise<Array>} List of barbers
  */
 const getAllBarber = async () => {
-    const query = 'SELECT * FROM Barbers ORDER BY name ASC';
-    const { rows } = await pool.query(query);
-
-    return rows;
+    return db.select().from(barbers).orderBy(asc(barbers.name));
 };
 
 /**
@@ -17,9 +17,7 @@ const getAllBarber = async () => {
  * @returns {Promise<Object|null>} Barber object or null if not found
  */
 const getBarberById = async (barberId) => {
-    const query = 'SELECT * FROM Barbers WHERE id = $1';
-    const { rows } = await pool.query(query, [barberId]);
-
+    const rows = await db.select().from(barbers).where(eq(barbers.id, barberId));
     return rows[0] || null;
 };
 
@@ -29,9 +27,7 @@ const getBarberById = async (barberId) => {
  * @returns {Promise<Object>} The created barber 
  */
 const createBarber = async (name) => {
-    const query = 'INSERT INTO Barbers (name) VALUES ($1) RETURNING *';
-    const { rows } = await pool.query(query, [name]);
-
+    const rows = await db.insert(barbers).values({ name }).returning();
     return rows[0];
 };
 
@@ -42,8 +38,10 @@ const createBarber = async (name) => {
  * @returns {Promise<Object|null>} The updated barber or null
  */
 const updateBarber = async (barberId, name) => {
-    const query = 'UPDATE Barbers SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *';
-    const { rows } = await pool.query(query, [name, barberId]);
+    const rows = await db.update(barbers)
+        .set({ name, updated_at: sql`CURRENT_TIMESTAMP` })
+        .where(eq(barbers.id, barberId))
+        .returning();
 
     return rows[0] || null;
 };
@@ -54,10 +52,8 @@ const updateBarber = async (barberId, name) => {
  * @returns {Promise<boolean>} True if deleted, false otherwise
  */
 const deleteBarber = async (barberId) => {
-    const query = 'DELETE FROM Barbers WHERE id = $1';
-    const { rowCount } = await pool.query(query, [barberId]);
-
-    return rowCount > 0;
+    const rows = await db.delete(barbers).where(eq(barbers.id, barberId)).returning();
+    return rows.length > 0;
 };
 
 module.exports = {

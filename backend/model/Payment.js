@@ -1,4 +1,16 @@
 const pool = require('../config/database');
+const db = pool.db;
+const { payments } = require('../config/db/schema');
+const { eq, sql } = require('drizzle-orm');
+const { drizzle } = require('drizzle-orm/node-postgres');
+
+// Utility to acquire the correct drizzle instance depending on client parameter
+const getDb = (client) => {
+    if (client === pool) return db;
+    if (client && typeof client.select === 'function') return client;
+    // client is a raw pg client from a pool.connect() transaction
+    return drizzle(client, { schema: require('../config/db/schema') });
+};
 
 /**
  * Create a new payment record (status defaults to 'pending')
@@ -6,18 +18,14 @@ const pool = require('../config/database');
  * @returns {Promise<Object>} Created payment
  */
 const createPayment = async (paymentData, client = pool) => {
-    const { 
-        appointment_id, 
-        amount, 
-        idempotency_key 
-    } = paymentData;
+    const tx = getDb(client);
+    const { appointment_id, amount, idempotency_key } = paymentData;
+    const rows = await tx.insert(payments).values({
+        appointment_id,
+        amount,
+        idempotency_key
+    }).returning();
 
-    const query = `
-        INSERT INTO Payments (appointment_id, amount, idempotency_key)
-        VALUES ($1, $2, $3)
-        RETURNING *
-    `;
-    const { rows } = await client.query(query, [appointment_id, amount, idempotency_key]);
     return rows[0];
 };
 
@@ -27,12 +35,12 @@ const createPayment = async (paymentData, client = pool) => {
  * @returns {Promise<Object|null>}
  */
 const getPaymentById = async (id, client = pool, forUpdate = false) => {
-    const query = `
-        SELECT * FROM Payments
-        WHERE id = $1
-        ${forUpdate ? 'FOR UPDATE' : ''}
-    `;
-    const { rows } = await client.query(query, [id]);
+    const tx = getDb(client);
+    let query = tx.select().from(payments).where(eq(payments.id, id));
+    if (forUpdate) {
+        query = query.for('update');
+    }
+    const rows = await query;
     return rows[0] || null;
 };
 
@@ -42,12 +50,12 @@ const getPaymentById = async (id, client = pool, forUpdate = false) => {
  * @returns {Promise<Object|null>}
  */
 const getPaymentByCheckoutId = async (checkoutId, client = pool, forUpdate = false) => {
-    const query = `
-        SELECT * FROM Payments
-        WHERE paymongo_checkout_id = $1
-        ${forUpdate ? 'FOR UPDATE' : ''}
-    `;
-    const { rows } = await client.query(query, [checkoutId]);
+    const tx = getDb(client);
+    let query = tx.select().from(payments).where(eq(payments.paymongo_checkout_id, checkoutId));
+    if (forUpdate) {
+        query = query.for('update');
+    }
+    const rows = await query;
     return rows[0] || null;
 };
 
@@ -58,29 +66,28 @@ const getPaymentByCheckoutId = async (checkoutId, client = pool, forUpdate = fal
  * @returns {Promise<Object|null>}
  */
 const updatePayment = async (id, updateData, client = pool) => {
+    const tx = getDb(client);
     const { paymongo_checkout_id, paymongo_payment_id, status } = updateData;
     
-    let query = 'UPDATE Payments SET updated_at = CURRENT_TIMESTAMP';
-    const values = [];
-    let paramCount = 1;
+    const values = {
+        updated_at: sql`CURRENT_TIMESTAMP`
+    };
 
     if (paymongo_checkout_id !== undefined) {
-        query += `, paymongo_checkout_id = $${paramCount++}`;
-        values.push(paymongo_checkout_id);
+        values.paymongo_checkout_id = paymongo_checkout_id;
     }
     if (paymongo_payment_id !== undefined) {
-        query += `, paymongo_payment_id = $${paramCount++}`;
-        values.push(paymongo_payment_id);
+        values.paymongo_payment_id = paymongo_payment_id;
     }
     if (status !== undefined) {
-        query += `, status = $${paramCount++}`;
-        values.push(status);
+        values.status = status;
     }
 
-    query += ` WHERE id = $${paramCount} RETURNING *`;
-    values.push(id);
+    const rows = await tx.update(payments)
+        .set(values)
+        .where(eq(payments.id, id))
+        .returning();
 
-    const { rows } = await client.query(query, values);
     return rows[0] || null;
 };
 
@@ -90,8 +97,7 @@ const updatePayment = async (id, updateData, client = pool) => {
  * @returns {Promise<Object|null>}
  */
 const getPaymentByIdempotencyKey = async (idempotencyKey) => {
-    const query = 'SELECT * FROM Payments WHERE idempotency_key = $1';
-    const { rows } = await pool.query(query, [idempotencyKey]);
+    const rows = await db.select().from(payments).where(eq(payments.idempotency_key, idempotencyKey));
     return rows[0] || null;
 };
 

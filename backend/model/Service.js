@@ -1,19 +1,28 @@
 const pool = require('../config/database');
+const db = pool.db;
+const { services, barbers } = require('../config/db/schema');
+const { eq, asc, sql } = require('drizzle-orm');
 
 /**
  * Fetch all services from the database with barber details
  * @returns {Promise<Array>} List of services
  */
 const getAllServices = async () => {
-    const query = `
-        SELECT s.*, b.name as barber_name 
-        FROM Services s
-        JOIN Barbers b ON s.barber_id = b.id
-        ORDER BY s.name ASC
-    `;
-    const { rows } = await pool.query(query);
-
-    return rows;
+    return db.select({
+        id: services.id,
+        barber_id: services.barber_id,
+        name: services.name,
+        description: services.description,
+        total_price: services.total_price,
+        downpayment_amount: services.downpayment_amount,
+        duration_mins: services.duration_mins,
+        created_at: services.created_at,
+        updated_at: services.updated_at,
+        barber_name: barbers.name
+    })
+    .from(services)
+    .innerJoin(barbers, eq(services.barber_id, barbers.id))
+    .orderBy(asc(services.name));
 };
 
 /**
@@ -22,16 +31,22 @@ const getAllServices = async () => {
  * @returns {Promise<Array>} List of services
  */
 const getServicesByBarber = async (barberId) => {
-    const query = `
-        SELECT s.*, b.name as barber_name 
-        FROM Services s
-        JOIN Barbers b ON s.barber_id = b.id
-        WHERE s.barber_id = $1 
-        ORDER BY s.name ASC
-    `;
-    const { rows } = await pool.query(query, [barberId]);
-
-    return rows;
+    return db.select({
+        id: services.id,
+        barber_id: services.barber_id,
+        name: services.name,
+        description: services.description,
+        total_price: services.total_price,
+        downpayment_amount: services.downpayment_amount,
+        duration_mins: services.duration_mins,
+        created_at: services.created_at,
+        updated_at: services.updated_at,
+        barber_name: barbers.name
+    })
+    .from(services)
+    .innerJoin(barbers, eq(services.barber_id, barbers.id))
+    .where(eq(services.barber_id, barberId))
+    .orderBy(asc(services.name));
 };
 
 /**
@@ -40,9 +55,7 @@ const getServicesByBarber = async (barberId) => {
  * @returns {Promise<Object|null>} Service object or null
  */
 const getServiceById = async (serviceId) => {
-    const query = 'SELECT * FROM Services WHERE id = $1';
-    const { rows } = await pool.query(query, [serviceId]);
-
+    const rows = await db.select().from(services).where(eq(services.id, serviceId));
     return rows[0] || null;
 };
 
@@ -53,12 +66,14 @@ const getServiceById = async (serviceId) => {
  */
 const createService = async (serviceData) => {
     const { barber_id, name, description, total_price, downpayment_amount, duration_mins } = serviceData;
-    const query = `
-        INSERT INTO Services (barber_id, name, description, total_price, downpayment_amount, duration_mins)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING *
-    `;
-    const { rows } = await pool.query(query, [barber_id, name, description, total_price, downpayment_amount, duration_mins]);
+    const rows = await db.insert(services).values({
+        barber_id,
+        name,
+        description,
+        total_price,
+        downpayment_amount,
+        duration_mins
+    }).returning();
 
     return rows[0];
 };
@@ -71,13 +86,17 @@ const createService = async (serviceData) => {
  */
 const updateService = async (serviceId, serviceData) => {
     const { name, description, total_price, downpayment_amount, duration_mins } = serviceData;
-    const query = `
-        UPDATE Services 
-        SET name = $1, description = $2, total_price = $3, downpayment_amount = $4, duration_mins = $5, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $6
-        RETURNING *
-    `;
-    const { rows } = await pool.query(query, [name, description, total_price, downpayment_amount, duration_mins, serviceId]);
+    const rows = await db.update(services)
+        .set({
+            name,
+            description,
+            total_price,
+            downpayment_amount,
+            duration_mins,
+            updated_at: sql`CURRENT_TIMESTAMP`
+        })
+        .where(eq(services.id, serviceId))
+        .returning();
 
     return rows[0] || null;
 };
@@ -88,10 +107,8 @@ const updateService = async (serviceId, serviceData) => {
  * @returns {Promise<boolean>} True if deleted, false otherwise
  */
 const deleteService = async (serviceId) => {
-    const query = 'DELETE FROM Services WHERE id = $1';
-    const { rowCount } = await pool.query(query, [serviceId]);
-
-    return rowCount > 0;
+    const rows = await db.delete(services).where(eq(services.id, serviceId)).returning();
+    return rows.length > 0;
 };
 
 module.exports = {

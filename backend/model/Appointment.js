@@ -1,5 +1,17 @@
 const pool = require('../config/database');
-const { getPendingHoldMinutes, activeAppointmentStatusSql } = require('../utils/bookingRules');
+const db = pool.db;
+const { appointments, barbers, services, payments } = require('../config/db/schema');
+const { getPendingHoldMinutes } = require('../utils/bookingRules');
+const { eq, and, or, sql } = require('drizzle-orm');
+const { drizzle } = require('drizzle-orm/node-postgres');
+
+// Utility to acquire the correct drizzle instance depending on client parameter
+const getDb = (client) => {
+    if (client === pool) return db;
+    if (client && typeof client.select === 'function') return client;
+    // client is a raw pg client from a pool.connect() transaction
+    return drizzle(client, { schema: require('../config/db/schema') });
+};
 
 /**
  * Create a new appointment (status defaults to 'pending')
@@ -7,34 +19,8 @@ const { getPendingHoldMinutes, activeAppointmentStatusSql } = require('../utils/
  * @returns {Promise<Object>} Created appointment
  */
 const createAppointment = async (appointmentData, client = pool) => {
-    const { 
-        customer_name, 
-        customer_phone, 
-        customer_email, 
-        barber_id, 
-        service_id, 
-        appointment_date, 
-        start_time, 
-        end_time,
-        management_token
-    } = appointmentData;
-
-    const query = `
-        INSERT INTO Appointments (
-            customer_name, customer_phone, customer_email, 
-            barber_id, service_id, appointment_date, start_time, end_time,
-            management_token
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        RETURNING *
-    `;
-    const values = [
-        customer_name, customer_phone, customer_email, 
-        barber_id, service_id, appointment_date, start_time, end_time,
-        management_token
-    ];
-
-    const { rows } = await client.query(query, values);
+    const tx = getDb(client);
+    const rows = await tx.insert(appointments).values(appointmentData).returning();
     return rows[0];
 };
 
@@ -44,12 +30,12 @@ const createAppointment = async (appointmentData, client = pool) => {
  * @returns {Promise<Object|null>}
  */
 const getAppointmentById = async (id, client = pool, forUpdate = false) => {
-    const query = `
-        SELECT * FROM Appointments
-        WHERE id = $1
-        ${forUpdate ? 'FOR UPDATE' : ''}
-    `;
-    const { rows } = await client.query(query, [id]);
+    const tx = getDb(client);
+    let query = tx.select().from(appointments).where(eq(appointments.id, id));
+    if (forUpdate) {
+        query = query.for('update');
+    }
+    const rows = await query;
     return rows[0] || null;
 };
 
@@ -61,12 +47,12 @@ const getAppointmentById = async (id, client = pool, forUpdate = false) => {
  * @returns {Promise<Object|null>}
  */
 const getAppointmentByManagementToken = async (token, client = pool, forUpdate = false) => {
-    const query = `
-        SELECT * FROM Appointments
-        WHERE management_token = $1
-        ${forUpdate ? 'FOR UPDATE' : ''}
-    `;
-    const { rows } = await client.query(query, [token]);
+    const tx = getDb(client);
+    let query = tx.select().from(appointments).where(eq(appointments.management_token, token));
+    if (forUpdate) {
+        query = query.for('update');
+    }
+    const rows = await query;
     return rows[0] || null;
 };
 
@@ -77,8 +63,11 @@ const getAppointmentByManagementToken = async (token, client = pool, forUpdate =
  * @returns {Promise<Object|null>}
  */
 const updateAppointmentStatus = async (id, status, client = pool) => {
-    const query = 'UPDATE Appointments SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *';
-    const { rows } = await client.query(query, [status, id]);
+    const tx = getDb(client);
+    const rows = await tx.update(appointments)
+        .set({ status, updated_at: sql`CURRENT_TIMESTAMP` })
+        .where(eq(appointments.id, id))
+        .returning();
     return rows[0] || null;
 };
 
@@ -90,17 +79,17 @@ const updateAppointmentStatus = async (id, status, client = pool) => {
  * @returns {Promise<Object|null>}
  */
 const updateAppointmentSchedule = async (id, scheduleData, client = pool) => {
+    const tx = getDb(client);
     const { appointment_date, start_time, end_time } = scheduleData;
-    const query = `
-        UPDATE Appointments
-        SET appointment_date = $1,
-            start_time = $2,
-            end_time = $3,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $4
-        RETURNING *
-    `;
-    const { rows } = await client.query(query, [appointment_date, start_time, end_time, id]);
+    const rows = await tx.update(appointments)
+        .set({
+            appointment_date,
+            start_time,
+            end_time,
+            updated_at: sql`CURRENT_TIMESTAMP`
+        })
+        .where(eq(appointments.id, id))
+        .returning();
     return rows[0] || null;
 };
 
@@ -113,23 +102,32 @@ const updateAppointmentSchedule = async (id, scheduleData, client = pool) => {
  * @returns {Promise<boolean>}
  */
 const isSlotAvailable = async (barberId, date, startTime, endTime, client = pool, excludeAppointmentId = null) => {
-    let query = `
-        SELECT 1 FROM Appointments
-        WHERE barber_id = $1
-        AND appointment_date = $2
-        AND ${activeAppointmentStatusSql('$5')}
-        AND (
-            (start_time < $4 AND end_time > $3)
+    const tx = getDb(client);
+    const holdMinutes = getPendingHoldMinutes();
+
+    const activeCondition = or(
+        eq(appointments.status, 'confirmed'),
+        and(
+            eq(appointments.status, 'pending'),
+            sql`${appointments.created_at} > CURRENT_TIMESTAMP - (${holdMinutes} * INTERVAL '1 minute')`
         )
-    `;
-    const values = [barberId, date, startTime, endTime, getPendingHoldMinutes()];
+    );
+
+    let conditions = and(
+        eq(appointments.barber_id, barberId),
+        eq(appointments.appointment_date, date),
+        activeCondition,
+        sql`start_time < ${endTime} AND end_time > ${startTime}`
+    );
 
     if (excludeAppointmentId) {
-        values.push(excludeAppointmentId);
-        query += ' AND id <> $6';
+        conditions = and(conditions, sql`id <> ${excludeAppointmentId}`);
     }
 
-    const { rows } = await client.query(query, values);
+    const rows = await tx.select({ one: sql`1` })
+        .from(appointments)
+        .where(conditions);
+
     return rows.length === 0;
 };
 
@@ -139,8 +137,8 @@ const isSlotAvailable = async (barberId, date, startTime, endTime, client = pool
  * @param {Object} client - The database client within a transaction
  */
 const lockBarber = async (barberId, client) => {
-    const query = 'SELECT 1 FROM Barbers WHERE id = $1 FOR UPDATE';
-    await client.query(query, [barberId]);
+    const tx = getDb(client);
+    await tx.select({ one: sql`1` }).from(barbers).where(eq(barbers.id, barberId)).for('update');
 };
 
 /**
@@ -149,35 +147,34 @@ const lockBarber = async (barberId, client) => {
  * @returns {Promise<Object|null>}
  */
 const getAppointmentDetails = async (id) => {
-    const query = `
-        SELECT 
-            a.id,
-            a.customer_name,
-            a.customer_phone,
-            a.customer_email,
-            a.barber_id,
-            a.service_id,
-            TO_CHAR(a.appointment_date, 'YYYY-MM-DD') AS appointment_date,
-            a.start_time,
-            a.end_time,
-            a.status,
-            a.management_token,
-            a.created_at,
-            a.updated_at,
-            b.name as barber_name,
-            s.name as service_name,
-            s.total_price,
-            s.downpayment_amount,
-            p.id AS payment_reference_number,
-            p.paymongo_checkout_id,
-            p.paymongo_payment_id
-        FROM Appointments a
-        JOIN Barbers b ON a.barber_id = b.id
-        JOIN Services s ON a.service_id = s.id
-        LEFT JOIN Payments p ON p.appointment_id = a.id
-        WHERE a.id = $1
-    `;
-    const { rows } = await pool.query(query, [id]);
+    const rows = await db.select({
+        id: appointments.id,
+        customer_name: appointments.customer_name,
+        customer_phone: appointments.customer_phone,
+        customer_email: appointments.customer_email,
+        barber_id: appointments.barber_id,
+        service_id: appointments.service_id,
+        appointment_date: sql`TO_CHAR(${appointments.appointment_date}, 'YYYY-MM-DD')`.mapWith(String),
+        start_time: appointments.start_time,
+        end_time: appointments.end_time,
+        status: appointments.status,
+        management_token: appointments.management_token,
+        created_at: appointments.created_at,
+        updated_at: appointments.updated_at,
+        barber_name: barbers.name,
+        service_name: services.name,
+        total_price: services.total_price,
+        downpayment_amount: services.downpayment_amount,
+        payment_reference_number: payments.id,
+        paymongo_checkout_id: payments.paymongo_checkout_id,
+        paymongo_payment_id: payments.paymongo_payment_id
+    })
+    .from(appointments)
+    .innerJoin(barbers, eq(appointments.barber_id, barbers.id))
+    .innerJoin(services, eq(appointments.service_id, services.id))
+    .leftJoin(payments, eq(payments.appointment_id, appointments.id))
+    .where(eq(appointments.id, id));
+
     return rows[0] || null;
 };
 

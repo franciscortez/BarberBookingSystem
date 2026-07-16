@@ -1,4 +1,7 @@
 const pool = require('../config/database');
+const db = pool.db;
+const { admins } = require('../config/db/schema');
+const { eq } = require('drizzle-orm');
 
 /**
  * Find an admin by username
@@ -6,9 +9,7 @@ const pool = require('../config/database');
  * @returns {Promise<Object|null>} Admin object or null
  */
 const findByUsername = async (username) => {
-    const query = 'SELECT * FROM Admins WHERE username = $1';
-    const { rows } = await pool.query(query, [username]);
-
+    const rows = await db.select().from(admins).where(eq(admins.username, username));
     return rows[0] || null;
 };
 
@@ -19,8 +20,14 @@ const findByUsername = async (username) => {
  * @returns {Promise<Object>} Created admin object
  */
 const createAdmin = async (username, passwordHash) => {
-    const query = 'INSERT INTO Admins (username, password_hash) VALUES ($1, $2) RETURNING id, username, created_at';
-    const { rows } = await pool.query(query, [username, passwordHash]);
+    const rows = await db.insert(admins).values({
+        username,
+        password_hash: passwordHash
+    }).returning({
+        id: admins.id,
+        username: admins.username,
+        created_at: admins.created_at
+    });
 
     return rows[0];
 };
@@ -31,8 +38,11 @@ const createAdmin = async (username, passwordHash) => {
  * @returns {Promise<Object|null>} Admin object or null
  */
 const findById = async (adminId) => {
-    const query = 'SELECT id, username, created_at FROM Admins WHERE id = $1';
-    const { rows } = await pool.query(query, [adminId]);
+    const rows = await db.select({
+        id: admins.id,
+        username: admins.username,
+        created_at: admins.created_at
+    }).from(admins).where(eq(admins.id, adminId));
 
     return rows[0] || null;
 };
