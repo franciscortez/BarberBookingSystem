@@ -2,7 +2,7 @@ const { defineConfig } = require('drizzle-kit');
 require('dotenv').config();
 
 module.exports = defineConfig({
-  schema: './config/db/schema.js',
+  schema: './config/db/schema.ts',
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
