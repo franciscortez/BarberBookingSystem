@@ -15,6 +15,11 @@ export const getBarberById = async (barberId: string): Promise<Barber | null> =>
     return (rows[0] as Barber) || null;
 };
 
+export const getBarberByEmail = async (email: string): Promise<Barber | null> => {
+    const rows = await db.select().from(barbers).where(eq(barbers.email, email));
+    return (rows[0] as Barber) || null;
+};
+
 export const createBarber = async (name: string): Promise<Barber> => {
     const rows = await db.insert(barbers).values({ name }).returning();
     return rows[0] as Barber;

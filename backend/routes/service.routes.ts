@@ -6,7 +6,7 @@ import {
     editService,
     removeService
 } from '../controller/service.controller';
-import authMiddleware from '../middleware/authMiddleware';
+import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
 import { catalogReadLimiter } from '../middleware/rateLimiters';
 
 const router = Router();
@@ -16,8 +16,9 @@ router.get('/', catalogReadLimiter, getServices);
 router.get('/:id', catalogReadLimiter, getService);
 
 // Protected routes (Admin only)
-router.post('/', authMiddleware, addService);
-router.put('/:id', authMiddleware, editService);
-router.delete('/:id', authMiddleware, removeService);
+router.post('/', authMiddleware, roleMiddleware('admin'), addService);
+router.put('/:id', authMiddleware, roleMiddleware('admin'), editService);
+router.delete('/:id', authMiddleware, roleMiddleware('admin'), removeService);
 
 export = router;
+

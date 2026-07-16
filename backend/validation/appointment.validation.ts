@@ -34,6 +34,8 @@ export const CreateBookingSchema = z.object({
         .regex(timeRegex, 'Invalid appointment date or start time')
 });
 
+export type CreateBookingInput = z.infer<typeof CreateBookingSchema>;
+
 export const RescheduleBookingSchema = z.object({
     token: z.string().min(1, 'token is required'),
     appointment_date: z
@@ -45,9 +47,13 @@ export const RescheduleBookingSchema = z.object({
         .regex(timeRegex, 'Invalid appointment date or start time')
 });
 
+export type RescheduleBookingInput = z.infer<typeof RescheduleBookingSchema>;
+
 export const CancelBookingSchema = z.object({
     token: z.string().min(1, 'token is required')
 });
+
+export type CancelBookingInput = z.infer<typeof CancelBookingSchema>;
 
 /**
  * Builds the end time string from date + start time + duration.

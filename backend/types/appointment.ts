@@ -1,5 +1,6 @@
 export interface Appointment {
     id: string;
+    user_id: string | null;
     customer_name: string;
     customer_phone: string;
     customer_email: string;
@@ -34,6 +35,7 @@ export interface CreateAppointmentInput {
     start_time: string;
     end_time: string;
     management_token: string;
+    user_id?: string;
 }
 
 export interface RescheduleScheduleInput {

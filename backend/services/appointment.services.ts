@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import crypto from 'crypto';
 import pool = require('../config/database');
 import * as AppointmentModel from '../model/appointment.model';
@@ -11,12 +10,16 @@ import { AppError } from '../utils/AppError';
 import { Appointment, AppointmentDetails } from '../types';
 import {
     CreateBookingSchema,
+    CreateBookingInput,
     RescheduleBookingSchema,
+    RescheduleBookingInput,
     CancelBookingSchema,
+    CancelBookingInput,
     buildEndTime
 } from '../validation/appointment.validation';
 
-export { CreateBookingSchema, RescheduleBookingSchema, CancelBookingSchema };
+export { CreateBookingSchema, CreateBookingInput, RescheduleBookingSchema, RescheduleBookingInput, CancelBookingSchema, CancelBookingInput };
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -85,7 +88,8 @@ export interface CreateBookingResult {
 }
 
 export const createBooking = async (
-    input: z.infer<typeof CreateBookingSchema>
+    input: CreateBookingInput,
+    userId?: string
 ): Promise<CreateBookingResult> => {
     const { customer_name, customer_phone, customer_email, barber_id, service_id, appointment_date, start_time } = input;
 
@@ -120,7 +124,8 @@ export const createBooking = async (
         newAppointment = await AppointmentModel.createAppointment({
             customer_name, customer_phone, customer_email,
             barber_id, service_id, appointment_date, start_time, end_time,
-            management_token: managementToken
+            management_token: managementToken,
+            user_id: userId
         }, client);
 
         newPayment = await PaymentModel.createPayment({
@@ -173,7 +178,7 @@ export const getManagedBooking = async (token: string): Promise<AppointmentDetai
 };
 
 export const rescheduleBooking = async (
-    input: z.infer<typeof RescheduleBookingSchema>
+    input: RescheduleBookingInput
 ): Promise<AppointmentDetails> => {
     const { token, appointment_date, start_time } = input;
 
@@ -231,7 +236,7 @@ export const rescheduleBooking = async (
 };
 
 export const cancelBooking = async (
-    input: z.infer<typeof CancelBookingSchema>
+    input: CancelBookingInput
 ): Promise<AppointmentDetails> => {
     const { token } = input;
 

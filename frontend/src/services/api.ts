@@ -104,7 +104,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     const pending = isCacheableGet ? pendingGets.get(key) as Promise<T> | undefined : undefined;
     if (pending) return withAbortSignal(pending, fetchOptions.signal ?? undefined);
 
-    const requestOptions = isCacheableGet ? withoutSignal(fetchOptions) : fetchOptions;
+    const requestOptions = {
+      credentials: 'include' as const,
+      ...(isCacheableGet ? withoutSignal(fetchOptions) : fetchOptions)
+    };
     const promise = fetch(url, requestOptions)
       .then(response => handleResponse<T>(response))
       .then(data => {
@@ -124,7 +127,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     return promise;
   }
 
-  return fetch(url, fetchOptions).then(response => handleResponse<T>(response));
+  return fetch(url, { credentials: 'include', ...fetchOptions }).then(response => handleResponse<T>(response));
 }
 
 export interface CatalogResponse {

@@ -26,5 +26,6 @@ export const buildCorsOptions = () => ({
 
         const allowedOrigins = getAllowedOrigins();
         return callback(null, allowedOrigins.includes(normalizeOrigin(origin)));
-    }
+    },
+    credentials: true
 });

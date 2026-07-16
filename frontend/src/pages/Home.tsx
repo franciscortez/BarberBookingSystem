@@ -143,10 +143,59 @@ const BarberSkeleton: React.FC = () => (
   </div>
 );
 
+const FALLBACK_BARBERS: Barber[] = [
+  { id: '1', name: 'Marco' },
+  { id: '2', name: 'Luis' },
+  { id: '3', name: 'Kevin' }
+];
+
+const FALLBACK_SERVICES: Service[] = [
+  {
+    id: 's1',
+    barber_id: '1',
+    name: 'Haircut',
+    description: 'Premium haircut tailored to your face shape, including hair wash and styling.',
+    total_price: 500,
+    downpayment_amount: 100,
+    duration_mins: 30,
+    barber_name: 'Marco'
+  },
+  {
+    id: 's2',
+    barber_id: '1',
+    name: 'Beard Trim',
+    description: 'Precision beard trim and line-up with hot towel treatment and beard oil.',
+    total_price: 350,
+    downpayment_amount: 50,
+    duration_mins: 30,
+    barber_name: 'Marco'
+  },
+  {
+    id: 's3',
+    barber_id: '1',
+    name: 'Haircut & Beard Trim Combo',
+    description: 'The ultimate grooming combo. Includes haircut, beard styling, hair wash, and hot towel.',
+    total_price: 750,
+    downpayment_amount: 150,
+    duration_mins: 60,
+    barber_name: 'Marco'
+  },
+  {
+    id: 's4',
+    barber_id: '1',
+    name: 'Luxury Hot Towel Shave',
+    description: 'Traditional straight razor shave with premium pre-shave oil, hot towels, and soothing balm.',
+    total_price: 400,
+    downpayment_amount: 100,
+    duration_mins: 45,
+    barber_name: 'Marco'
+  }
+];
+
 const Home: React.FC = () => {
-  const [barbers, setBarbers] = useState<Barber[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [barbers, setBarbers] = useState<Barber[]>(FALLBACK_BARBERS);
+  const [services, setServices] = useState<Service[]>(FALLBACK_SERVICES);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const groupedServices = useMemo(() => groupServicesByName(services), [services]);
@@ -158,13 +207,12 @@ const Home: React.FC = () => {
       try {
         setLoading(true);
         const catalog = await getCatalog({ signal: controller.signal });
-        setBarbers(catalog.barbers);
-        setServices(catalog.services);
+        if (catalog.barbers?.length) setBarbers(catalog.barbers);
+        if (catalog.services?.length) setServices(catalog.services);
         setError(null);
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
-        console.error('Error fetching landing data:', err);
-        setError('Failed to sync catalog data with the server. Please refresh the page.');
+        // Keep fallback data silently
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -173,7 +221,6 @@ const Home: React.FC = () => {
     };
 
     fetchData();
-
     return () => controller.abort();
   }, []);
 

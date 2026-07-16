@@ -5,3 +5,6 @@ export const AvailabilityQuerySchema = z.object({
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be in YYYY-MM-DD format'),
     serviceId: z.string().uuid('serviceId must be a valid UUID').optional()
 });
+
+export type AvailabilityQueryInput = z.infer<typeof AvailabilityQuerySchema>;
+

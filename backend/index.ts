@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import pool = require('./config/database');
 import { buildCorsOptions } from './config/cors';
@@ -23,6 +24,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.use(cors(buildCorsOptions()));
+app.use(cookieParser());
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 

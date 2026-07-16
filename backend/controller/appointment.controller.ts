@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import * as AppointmentService from '../services/appointment.services';
+import { AuthenticatedRequest } from '../middleware/authMiddleware';
 
 export const createBooking = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const data = AppointmentService.CreateBookingSchema.parse(req.body);
-        const result = await AppointmentService.createBooking(data);
+        const userId = (req as AuthenticatedRequest).user?.id;
+        const result = await AppointmentService.createBooking(data, userId);
         res.status(201).json({
             message: 'Booking created and checkout session initialized',
             appointment: result.appointment,

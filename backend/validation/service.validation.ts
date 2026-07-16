@@ -23,6 +23,8 @@ export const CreateServiceSchema = z.object({
     { message: 'downpayment_amount must not exceed total_price', path: ['downpayment_amount'] }
 );
 
+export type CreateServiceInput = z.infer<typeof CreateServiceSchema>;
+
 export const UpdateServiceSchema = z.object({
     name: z.string().min(1).max(200).optional(),
     description: z.string().max(1000).optional(),
@@ -35,3 +37,6 @@ export const UpdateServiceSchema = z.object({
         ])
         .optional()
 });
+
+export type UpdateServiceInput = z.infer<typeof UpdateServiceSchema>;
+

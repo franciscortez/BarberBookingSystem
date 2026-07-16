@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Scissors, Menu, X, Calendar } from 'lucide-react';
-import { preloadBookingRoute } from '../routes/lazyRoutes';
+import { Scissors, Menu, X, Calendar, LogIn, LogOut, ChevronDown } from 'lucide-react';
+import { preloadBookingRoute, preloadLoginRoute } from '../routes/lazyRoutes';
+import { useAuth } from '../hooks/useAuth';
 
 type HomeSection = 'home' | 'services' | 'team';
 
@@ -11,8 +12,11 @@ const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [scrolled, setScrolled] = useState<boolean>(false);
   const [visibleHomeSection, setVisibleHomeSection] = useState<HomeSection>('home');
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, loading, logout } = useAuth();
   const activeSection = location.pathname === '/' ? visibleHomeSection : null;
 
   // Scroll effect to make navbar more solid on scroll
@@ -103,6 +107,17 @@ const Navbar: React.FC = () => {
     }
   }, [location]);
 
+  // Close user menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => {
     e.preventDefault();
     setIsOpen(false);
@@ -130,6 +145,13 @@ const Navbar: React.FC = () => {
     } else {
       navigate('/');
     }
+  };
+
+  const handleLogout = async () => {
+    setUserMenuOpen(false);
+    setIsOpen(false);
+    await logout();
+    navigate('/');
   };
 
   return (
@@ -192,6 +214,48 @@ const Navbar: React.FC = () => {
           
           <span className="h-5 w-[1px] bg-zinc-800" />
 
+          {/* Auth / User Menu */}
+          {!loading && (
+            user ? (
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-all"
+                >
+                  <span className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-[10px] font-bold text-zinc-950">
+                    {user.name.charAt(0).toUpperCase()}
+                  </span>
+                  <span className="max-w-[100px] truncate">{user.name}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-zinc-800 bg-zinc-900/95 backdrop-blur-md shadow-xl py-1 animate-fadeIn">
+                    <div className="px-4 py-2.5 border-b border-zinc-800">
+                      <p className="text-xs font-semibold text-zinc-300 truncate">{user.name}</p>
+                      <p className="text-[10px] text-zinc-500 capitalize">{user.role}</p>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full px-4 py-2.5 text-left text-sm text-zinc-400 hover:text-red-400 hover:bg-zinc-800/50 transition-colors flex items-center gap-2"
+                    >
+                      <LogOut className="w-3.5 h-3.5" /> Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                onMouseEnter={preloadLoginRoute}
+                onFocus={preloadLoginRoute}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-all"
+              >
+                <LogIn className="w-4 h-4" /> Sign In
+              </Link>
+            )
+          )}
+
           {/* Call to Action Book Now */}
           <Link
             to="/book"
@@ -246,6 +310,34 @@ const Navbar: React.FC = () => {
             </a>
             
             <hr className="border-zinc-900 my-2" />
+
+            {!loading && (
+              user ? (
+                <>
+                  <div className="flex items-center gap-2 py-1.5">
+                    <span className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-[10px] font-bold text-zinc-950">
+                      {user.name.charAt(0).toUpperCase()}
+                    </span>
+                    <span className="text-sm font-medium text-zinc-300">{user.name}</span>
+                    <span className="text-[10px] text-zinc-500 capitalize">({user.role})</span>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="py-2 text-left text-sm text-zinc-400 hover:text-red-400 transition-colors flex items-center gap-2"
+                  >
+                    <LogOut className="w-3.5 h-3.5" /> Sign Out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  onClick={() => setIsOpen(false)}
+                  className="py-3 rounded-xl text-sm font-medium text-zinc-300 border border-zinc-800 text-center flex items-center justify-center gap-1.5"
+                >
+                  <LogIn className="w-4 h-4" /> Sign In / Register
+                </Link>
+              )
+            )}
 
             <Link
               to="/book"

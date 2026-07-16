@@ -14,7 +14,7 @@ describe('Barber API Endpoints', () => {
     // Create a test admin directly in DB for testing
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(testAdmin.password, salt);
-    await pool.query('INSERT INTO Admins (username, password_hash) VALUES ($1, $2)', [testAdmin.username, passwordHash]);
+    await pool.query('INSERT INTO users (name, email, phone, password_hash, role) VALUES ($1, $2, $3, $4, $5)', [testAdmin.username, `${testAdmin.username}@example.com`, '0000000000', passwordHash, 'admin']);
     
     const loginRes = await request(app).post('/api/auth/login').send(testAdmin);
     token = loginRes.body.token;
@@ -22,8 +22,9 @@ describe('Barber API Endpoints', () => {
 
   afterAll(async () => {
     // Cleanup test admin
-    await pool.query('DELETE FROM Admins WHERE username = $1', [testAdmin.username]);
+    await pool.query('DELETE FROM users WHERE name = $1 OR email = $2', [testAdmin.username, `${testAdmin.username}@example.com`]);
   });
+
 
   // Test listing barbers
   it('GET /api/barbers should return all barbers', async () => {

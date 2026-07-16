@@ -1,8 +1,7 @@
-import { z } from 'zod';
 import * as AvailabilityModel from '../model/availability.model';
-import { AvailabilityQuerySchema } from '../validation/availability.validation';
+import { AvailabilityQuerySchema, AvailabilityQueryInput } from '../validation/availability.validation';
 
-export { AvailabilityQuerySchema };
+export { AvailabilityQuerySchema, AvailabilityQueryInput };
 
 export interface Slot {
     start: string;
@@ -25,8 +24,9 @@ const END_HOUR = 18;
 const SLOT_INTERVAL = 30;
 
 export const getAvailability = async (
-    query: z.infer<typeof AvailabilityQuerySchema>
+    query: AvailabilityQueryInput
 ): Promise<AvailabilityResult> => {
+
     const { barberId, date, serviceId } = query;
 
     const [appointments, serviceDuration] = await Promise.all([

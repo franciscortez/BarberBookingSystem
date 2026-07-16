@@ -11,7 +11,12 @@ export const BookingFunnelRoute = lazyWithPreload(() => import('../pages/Booking
 export const SuccessPageRoute = lazyWithPreload(() => import('../pages/SuccessPage'));
 export const RescheduleBookingRoute = lazyWithPreload(() => import('../pages/RescheduleBooking'));
 export const CancelBookingRoute = lazyWithPreload(() => import('../pages/CancelBooking'));
+export const LoginRoute = lazyWithPreload(() => import('../pages/Login'));
 
 export const preloadBookingRoute = () => {
   void BookingFunnelRoute.preload();
+};
+
+export const preloadLoginRoute = () => {
+  void LoginRoute.preload();
 };
