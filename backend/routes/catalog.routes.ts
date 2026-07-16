@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getCatalog } from '../controller/catalogController';
+import { getCatalog } from '../controller/catalog.controller';
 import { catalogReadLimiter } from '../middleware/rateLimiters';
 
 const router = Router();

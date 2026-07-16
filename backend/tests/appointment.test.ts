@@ -16,7 +16,7 @@ import {
 } from '../utils/emailService';
 import { flushEmailJobs } from '../utils/emailQueue';
 import * as paymongoConfig from '../config/paymongo';
-import * as Payment from '../model/Payment';
+import * as Payment from '../model/payment.model';
 
 const mockSendConfirmationEmail = sendConfirmationEmail as jest.Mock;
 const mockSendRescheduleConfirmationEmail = sendRescheduleConfirmationEmail as jest.Mock;

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { getAllBarber } from '../model/Barber';
-import * as Service from '../model/Service';
+import { getAllBarber } from '../model/barber.model';
+import * as Service from '../model/service.model';
 
 export const getCatalog = async (req: Request, res: Response): Promise<any> => {
     try {

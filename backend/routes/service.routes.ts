@@ -5,7 +5,7 @@ import {
     addService,
     editService,
     removeService
-} from '../controller/serviceController';
+} from '../controller/service.controller';
 import authMiddleware from '../middleware/authMiddleware';
 import { catalogReadLimiter } from '../middleware/rateLimiters';
 

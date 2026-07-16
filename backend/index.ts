@@ -3,14 +3,15 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import pool = require('./config/database');
 import { buildCorsOptions } from './config/cors';
-import barberRoutes = require('./routes/barberRoutes');
-import authRoutes = require('./routes/authRoutes');
-import serviceRoutes = require('./routes/serviceRoutes');
-import availabilityRoutes = require('./routes/availabilityRoutes');
-import appointmentRoutes = require('./routes/appointmentRoutes');
-import paymentRoutes = require('./routes/paymentRoutes');
-import catalogRoutes = require('./routes/catalogRoutes');
+import barberRoutes = require('./routes/barber.routes');
+import authRoutes = require('./routes/auth.routes');
+import serviceRoutes = require('./routes/service.routes');
+import availabilityRoutes = require('./routes/availability.routes');
+import appointmentRoutes = require('./routes/appointment.routes');
+import paymentRoutes = require('./routes/payment.routes');
+import catalogRoutes = require('./routes/catalog.routes');
 import { generalApiLimiterFallback } from './middleware/rateLimiters';
+import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
 
@@ -68,6 +69,9 @@ app.use('/api/payments', paymentRoutes);
 app.get('/', (req, res) => {
     res.json({ message: 'Barber Booking System API is running' });
 });
+
+// Global error handler — must be registered after all routes
+app.use(errorHandler);
 
 app.get('/health', async (req, res) => {
     try {

@@ -18,7 +18,7 @@ export const authMiddleware = (req: AuthenticatedRequest, res: Response, next: N
         const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
         req.admin = decoded;
         next();
-    } catch (err) {
+    } catch {
         res.status(401).json({ error: 'Token is not valid' });
     }
 };

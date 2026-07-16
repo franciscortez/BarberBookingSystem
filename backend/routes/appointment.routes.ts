@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import * as appointmentController from '../controller/appointmentController';
+import * as appointmentController from '../controller/appointment.controller';
 import { bookingMutationLimiter } from '../middleware/rateLimiters';
 
 const router = Router();

@@ -5,7 +5,7 @@ import {
     addBarber,
     editBarber,
     removeBarber
-} from '../controller/barberController';
+} from '../controller/barber.controller';
 import authMiddleware from '../middleware/authMiddleware';
 import { catalogReadLimiter } from '../middleware/rateLimiters';
 
