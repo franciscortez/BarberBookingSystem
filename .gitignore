@@ -17,3 +17,8 @@ npm-debug.log*
 *seed.sql
 seed/
 backend/scripts/seed.js
+
+# Agent and Codex
+.agents/
+.codex/
+
