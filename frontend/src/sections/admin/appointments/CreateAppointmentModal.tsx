@@ -256,15 +256,39 @@ export const CreateAppointmentModal: React.FC<CreateAppointmentModalProps> = ({
               </label>
               <div className="relative">
                 <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                <input
+                <select
                   required
-                  type="time"
                   value={form.start_time}
                   onChange={(e) =>
                     setForm({ ...form, start_time: e.target.value })
                   }
-                  className="w-full pl-9 pr-3 py-2 rounded-md border border-slate-300 text-sm text-slate-900 focus:border-amber-500 focus:outline-hidden"
-                />
+                  className="w-full pl-9 pr-3 py-2 rounded-md border border-slate-300 bg-white text-sm text-slate-900 focus:border-amber-500 focus:outline-hidden"
+                >
+                  {[
+                    "09:00",
+                    "09:30",
+                    "10:00",
+                    "10:30",
+                    "11:00",
+                    "11:30",
+                    "12:00",
+                    "12:30",
+                    "13:00",
+                    "13:30",
+                    "14:00",
+                    "14:30",
+                    "15:00",
+                    "15:30",
+                    "16:00",
+                    "16:30",
+                    "17:00",
+                    "17:30",
+                  ].map((slot) => (
+                    <option key={slot} value={slot}>
+                      {slot}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
