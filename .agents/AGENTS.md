@@ -102,3 +102,13 @@
 
 - **Commit Only**: Only stage (`git add`) and commit (`git commit`) changes when asked. Never push (`git push`) changes to remote repository.
 
+## TypeScript Type-Safe Imports & Exports
+
+- **Explicit Type Modifiers**: When importing or exporting Zod schema types (e.g., `CreateBookingInput` from `appointment.validation.ts`) inside other files, always use explicit `import type` and `export type` syntax. This prevents production bundler compilation warnings (e.g., `MISSING_EXPORT`).
+
+## Vercel Multi-Project Services Deployment
+
+- **Root Vercel Routing**: The root `vercel.json` maps `/api` to the backend service.
+- **VITE_API_URL Configuration**: In production, set `VITE_API_URL` to the base domain (e.g., `https://your-domain.vercel.app`) without the `/api` suffix. Suffixing it will cause duplicate `/api/api` paths since frontend routes already start with `/api`.
+- **Health Check Path**: The backend health check endpoint must support both `/health` and `/api/health` requests for Vercel rewrite compatibility.
+
