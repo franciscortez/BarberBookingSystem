@@ -72,6 +72,7 @@ const Appointments: React.FC = () => {
         error={error}
         appointments={appointments}
         onMutateStatus={handleMutateStatus}
+        onRefresh={fetchAppointments}
       />
       <RescheduleAppointment role="admin" />
     </>

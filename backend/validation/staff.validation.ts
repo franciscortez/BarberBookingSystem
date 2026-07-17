@@ -62,3 +62,20 @@ export type BarberProfileInput = z.infer<typeof BarberProfileSchema>;
 export type InviteBarberInput = z.infer<typeof InviteBarberSchema>;
 export type WorkingHourInput = z.infer<typeof WorkingHourSchema>;
 export type AvailabilityBlockInput = z.infer<typeof AvailabilityBlockSchema>;
+
+export const WalkinBookingSchema = z.object({
+  customer_name: z.string().trim().min(1, "Name is required"),
+  customer_phone: z.string().trim().min(7, "Phone must be at least 7 digits"),
+  customer_email: z
+    .string()
+    .trim()
+    .email("Invalid email")
+    .or(z.literal(""))
+    .default(""),
+  barber_id: z.string().uuid("Invalid barber selection"),
+  service_id: z.string().uuid("Invalid service selection"),
+  appointment_date: date,
+  start_time: time,
+});
+
+export type WalkinBookingInput = z.infer<typeof WalkinBookingSchema>;

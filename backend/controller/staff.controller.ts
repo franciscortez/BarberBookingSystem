@@ -12,6 +12,7 @@ import {
   InvitationTokenSchema,
   ReplaceWorkingHoursSchema,
   AvailabilityBlockSchema,
+  WalkinBookingSchema,
 } from "../validation/staff.validation";
 
 const barberId = (req: Request) =>
@@ -457,6 +458,23 @@ export const acceptInvite = async (
     const data = AcceptInvitationSchema.parse(req.body);
     res.status(201).json({
       user: await StaffService.acceptInvitation(data.token, data.password),
+    });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const adminCreateWalkin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const data = WalkinBookingSchema.parse(req.body);
+    const appointment = await StaffService.createWalkinAppointment(data);
+    res.status(201).json({
+      message: "Walk-in booking created successfully",
+      appointment,
     });
   } catch (e) {
     next(e);

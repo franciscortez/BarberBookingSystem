@@ -276,3 +276,119 @@ export const acceptInvitation = async (token: string, password: string) => {
     client.release();
   }
 };
+
+export const createWalkinAppointment = async (input: {
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  barber_id: string;
+  service_id: string;
+  appointment_date: string;
+  start_time: string;
+}) => {
+  const {
+    customer_name,
+    customer_phone,
+    customer_email,
+    barber_id,
+    service_id,
+    appointment_date,
+    start_time,
+  } = input;
+
+  const service = await ServiceModel.getServiceById(service_id);
+  if (!service) throw AppError.notFound("Service not found");
+  if (!service.is_active) throw AppError.conflict("Service is inactive");
+
+  const barber = await StaffModel.getBarber(barber_id);
+  if (!barber) throw AppError.notFound("Barber not found");
+  if (!barber.is_active) throw AppError.conflict("Barber is inactive");
+  if (service.barber_id !== barber_id)
+    throw AppError.badRequest("Service does not belong to the selected barber");
+
+  const end_time = buildEndTime(
+    appointment_date,
+    start_time,
+    service.duration_mins,
+  );
+
+  const slotValidation = validateBookableSlot({
+    appointmentDate: appointment_date,
+    startTime: start_time,
+    durationMins: service.duration_mins,
+  });
+  if (!slotValidation.valid) throw AppError.badRequest(slotValidation.error!);
+
+  const client = await pool.connect();
+  let released = false;
+  let newAppointment!: any;
+
+  try {
+    await client.query("BEGIN");
+    await AppointmentModel.lockBarber(barber_id, client);
+
+    const isAvailable = await AppointmentModel.isSlotAvailable(
+      barber_id,
+      appointment_date,
+      start_time,
+      end_time,
+      client,
+    );
+    if (!isAvailable) {
+      await client.query("ROLLBACK");
+      released = true;
+      client.release();
+      throw AppError.conflict("The requested time slot is no longer available");
+    }
+
+    const managementToken = crypto.randomUUID();
+    newAppointment = await AppointmentModel.createAppointment(
+      {
+        customer_name,
+        customer_phone,
+        customer_email,
+        barber_id,
+        service_id,
+        appointment_date,
+        start_time,
+        end_time,
+        management_token: managementToken,
+        status: "confirmed",
+      },
+      client,
+    );
+
+    // Create a payment record as immediately paid since it's walk-in (onsite payment)
+    const PaymentModel = require("../model/payment.model");
+    await PaymentModel.createPayment(
+      {
+        appointment_id: newAppointment.id,
+        amount: service.downpayment_amount,
+        status: "paid",
+        idempotency_key: crypto.randomUUID(),
+      },
+      client,
+    );
+
+    await client.query("COMMIT");
+  } catch (dbErr: any) {
+    if (!released) {
+      await client.query("ROLLBACK");
+      client.release();
+    }
+    throw dbErr;
+  }
+
+  client.release();
+
+  if (customer_email && customer_email.trim()) {
+    const details = await AppointmentModel.getAppointmentDetails(
+      newAppointment.id,
+    );
+    if (details) {
+      enqueueEmailJob("bookingConfirmation", details);
+    }
+  }
+
+  return newAppointment;
+};

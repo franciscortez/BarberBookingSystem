@@ -36,6 +36,7 @@ export interface CreateAppointmentInput {
   end_time: string;
   management_token: string;
   user_id?: string;
+  status?: string;
 }
 
 export interface RescheduleScheduleInput {

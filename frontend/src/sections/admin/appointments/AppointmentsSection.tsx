@@ -1,15 +1,18 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { CalendarPlus } from "lucide-react";
 import type { StaffAppointment } from "../../../types";
 import { money, statusClass, titleCase } from "../adminPortalUtils";
 import AdminHeader from "../common/AdminHeader";
 import { AppointmentsSkeleton } from "../common/AdminSkeletons";
+import CreateAppointmentModal from "./CreateAppointmentModal";
 
 interface AppointmentsSectionProps {
   loading: boolean;
   error: string;
   appointments: StaffAppointment[];
   onMutateStatus: (id: string, status: string) => Promise<void>;
+  onRefresh: () => Promise<void>;
 }
 
 const actionStatuses = ["checked_in", "completed", "no_show", "cancelled"];
@@ -19,7 +22,10 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({
   error,
   appointments,
   onMutateStatus,
+  onRefresh,
 }) => {
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+
   if (loading) {
     return <AppointmentsSkeleton />;
   }
@@ -37,7 +43,19 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({
 
   return (
     <>
-      <AdminHeader title="Appointments" />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <AdminHeader title="Appointments" />
+        <div>
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-xs hover:bg-amber-400 transition-colors"
+          >
+            <CalendarPlus className="w-4 h-4" />
+            <span>Add Walk-In</span>
+          </button>
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -120,6 +138,12 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({
           </p>
         )}
       </div>
+
+      <CreateAppointmentModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onSuccess={onRefresh}
+      />
     </>
   );
 };

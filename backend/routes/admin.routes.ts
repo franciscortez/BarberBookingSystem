@@ -16,6 +16,7 @@ router.use(authMiddleware, authorize("admin"));
 router.get("/dashboard", c.adminDashboard);
 
 router.get("/appointments", c.adminAppointments);
+router.post("/appointments", c.adminCreateWalkin);
 router.get("/appointments/:id", c.adminAppointment);
 router.patch("/appointments/:id/status", c.adminStatus);
 router.patch("/appointments/:id/schedule", c.adminReschedule);
