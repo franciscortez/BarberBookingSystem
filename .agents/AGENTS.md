@@ -112,3 +112,8 @@
 - **VITE_API_URL Configuration**: In production, set `VITE_API_URL` to the base domain (e.g., `https://your-domain.vercel.app`) without the `/api` suffix. Suffixing it will cause duplicate `/api/api` paths since frontend routes already start with `/api`.
 - **Health Check Path**: The backend health check endpoint must support both `/health` and `/api/health` requests for Vercel rewrite compatibility.
 
+## Frontend API Caching for Admin/Staff Portals
+
+- **In-Memory Caching**: Cache authenticated GET API responses in `staffApi.ts` using short-term TTL (e.g., 30s) and stale-while-revalidate window (e.g., 5m). This avoids lag during SPA page transitions.
+- **Auto-Invalidation on Mutation**: Any write operation (POST, PUT, DELETE, PATCH) must trigger cache clearing via `clearStaffCache()` to prevent displaying stale data to users.
+
