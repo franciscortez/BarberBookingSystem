@@ -75,6 +75,82 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+const subscribeTokenRefresh = (cb: (token: string) => void) => {
+  refreshSubscribers.push(cb);
+};
+
+const onRefreshed = (token: string) => {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
+};
+
+export async function performTokenRefresh(): Promise<string | null> {
+  if (isRefreshing) {
+    return new Promise((resolve) => {
+      subscribeTokenRefresh((token) => resolve(token));
+    });
+  }
+
+  isRefreshing = true;
+
+  try {
+    const refreshToken = localStorage.getItem("refreshToken");
+    if (!refreshToken) {
+      throw new Error("No refresh token");
+    }
+
+    const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+      },
+      credentials: "include",
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to refresh token");
+    }
+
+    const data = await res.json();
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("refreshToken", data.refreshToken);
+    isRefreshing = false;
+    onRefreshed(data.token);
+    return data.token;
+  } catch {
+    isRefreshing = false;
+    localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
+    window.dispatchEvent(new Event("auth-expired"));
+    return null;
+  }
+}
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
+  let response = await fetch(url, init);
+
+  if (response.status === 401) {
+    const newToken = await performTokenRefresh();
+    if (newToken) {
+      const headers = {
+        ...(init.headers as Record<string, string>),
+        Authorization: `Bearer ${newToken}`,
+      };
+      response = await fetch(url, { ...init, headers });
+    }
+  }
+
+  return response;
+}
+
 async function request<T>(
   path: string,
   options: RequestOptions = {},
@@ -134,7 +210,7 @@ async function request<T>(
       },
       ...(isCacheableGet ? withoutSignal(fetchOptions) : fetchOptions),
     };
-    const promise = fetch(url, requestOptions)
+    const promise = fetchWithRetry(url, requestOptions)
       .then((response) => handleResponse<T>(response))
       .then((data) => {
         if (cacheTtlMs !== undefined) {
@@ -153,7 +229,7 @@ async function request<T>(
     return promise;
   }
 
-  return fetch(url, {
+  return fetchWithRetry(url, {
     credentials: "include",
     headers: {
       "ngrok-skip-browser-warning": "true",

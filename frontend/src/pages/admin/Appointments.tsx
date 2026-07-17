@@ -6,6 +6,7 @@ import RescheduleAppointment from "../../components/staff/RescheduleAppointment"
 import AppointmentsSection from "../../sections/admin/appointments/AppointmentsSection";
 import { staffRequest } from "../../services/staffApi";
 import type { StaffAppointment } from "../../types";
+import { confirmAction, errorToast } from "../../utils/alert";
 
 const Appointments: React.FC = () => {
   const { appointmentId } = useParams();
@@ -36,7 +37,19 @@ const Appointments: React.FC = () => {
   }, [fetchAppointments]);
 
   const handleMutateStatus = async (id: string, status: string) => {
-    if (!confirm("Confirm this action?")) return;
+    const label = status
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    const ok = await confirmAction({
+      title: `Mark as ${label}?`,
+      text: `This will update the appointment status to "${label}".`,
+      confirmText: `Yes, ${label}`,
+      variant:
+        status === "cancelled" || status === "no_show" ? "danger" : "primary",
+    });
+    if (!ok) return;
+
     try {
       await staffRequest(`/api/admin/appointments/${id}/status`, {
         method: "PATCH",
@@ -44,6 +57,10 @@ const Appointments: React.FC = () => {
       });
       await fetchAppointments();
     } catch (e: unknown) {
+      errorToast(
+        "Update Failed",
+        e instanceof Error ? e.message : "Request failed",
+      );
       setError(e instanceof Error ? e.message : "Request failed");
     }
   };

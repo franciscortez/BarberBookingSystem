@@ -26,7 +26,7 @@ interface BarbersSectionProps {
     id: string,
     data: { name: string; phone: string },
   ) => Promise<void>;
-  onDeleteBarber: (id: string) => Promise<void>;
+  onDeleteBarber: (id: string, name: string) => Promise<void>;
   onSendInvite: (form: {
     name: string;
     email: string;
@@ -148,7 +148,7 @@ const BarbersSection: React.FC<BarbersSectionProps> = ({
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => void onDeleteBarber(row.id)}
+                        onClick={() => void onDeleteBarber(row.id, row.name)}
                         title="Delete Barber"
                         className="p-1.5 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
                       >

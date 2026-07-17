@@ -22,15 +22,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         if (token) {
           headers["Authorization"] = `Bearer ${token}`;
         }
-        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        let res = await fetch(`${API_BASE_URL}/api/auth/me`, {
           credentials: "include",
           headers,
         });
+
+        if (res.status === 401) {
+          const refreshToken = localStorage.getItem("refreshToken");
+          if (refreshToken) {
+            const refreshRes = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+              method: "POST",
+              credentials: "include",
+              headers: {
+                "Content-Type": "application/json",
+                "ngrok-skip-browser-warning": "true",
+              },
+              body: JSON.stringify({ refreshToken }),
+            });
+            if (refreshRes.ok) {
+              const refreshData = await refreshRes.json();
+              localStorage.setItem("token", refreshData.token);
+              localStorage.setItem("refreshToken", refreshData.refreshToken);
+
+              headers["Authorization"] = `Bearer ${refreshData.token}`;
+              res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+                credentials: "include",
+                headers,
+              });
+            }
+          }
+        }
+
         if (res.ok) {
           const data = await res.json();
           setUser(data.user);
         } else {
           localStorage.removeItem("token");
+          localStorage.removeItem("refreshToken");
         }
       } catch {
         // not authenticated
@@ -41,31 +69,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     void checkSession();
   }, []);
 
-  const login = useCallback((u: AuthUser, token?: string) => {
-    if (token) {
-      localStorage.setItem("token", token);
-    }
-    setUser(u);
-  }, []);
+  const login = useCallback(
+    (u: AuthUser, token?: string, refreshToken?: string) => {
+      if (token) {
+        localStorage.setItem("token", token);
+      }
+      if (refreshToken) {
+        localStorage.setItem("refreshToken", refreshToken);
+      }
+      setUser(u);
+    },
+    [],
+  );
 
   const logout = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
+      const refreshToken = localStorage.getItem("refreshToken");
       const headers: Record<string, string> = {
         "ngrok-skip-browser-warning": "true",
       };
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
+      const body = refreshToken ? JSON.stringify({ refreshToken }) : undefined;
       await fetch(`${API_BASE_URL}/api/auth/logout`, {
         method: "POST",
         credentials: "include",
-        headers,
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
+        body,
       });
     } catch {
       // ignore
     } finally {
       localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
       setUser(null);
     }
   }, []);

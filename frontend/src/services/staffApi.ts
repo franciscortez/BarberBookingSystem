@@ -1,6 +1,9 @@
+import { performTokenRefresh } from "./api";
+
 const BASE = (
   (import.meta.env.VITE_API_URL as string | undefined)?.trim() ?? ""
 ).replace(/\/+$/, "");
+
 export async function staffRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -11,16 +14,30 @@ export async function staffRequest<T>(
     authHeaders["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${BASE}${path}`, {
+  const requestHeaders = {
+    "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
+    ...authHeaders,
+    ...options.headers,
+  };
+
+  let response = await fetch(`${BASE}${path}`, {
     ...options,
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      "ngrok-skip-browser-warning": "true",
-      ...authHeaders,
-      ...options.headers,
-    },
+    headers: requestHeaders,
   });
+
+  if (response.status === 401) {
+    const newToken = await performTokenRefresh();
+    if (newToken) {
+      requestHeaders["Authorization"] = `Bearer ${newToken}`;
+      response = await fetch(`${BASE}${path}`, {
+        ...options,
+        credentials: "include",
+        headers: requestHeaders,
+      });
+    }
+  }
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));

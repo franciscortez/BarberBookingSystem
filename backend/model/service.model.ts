@@ -68,7 +68,7 @@ export const getServiceById = async (
   const rows = await db
     .select()
     .from(services)
-    .where(eq(services.id, serviceId));
+    .where(and(eq(services.id, serviceId), eq(services.is_active, true)));
   return (rows[0] as Service) || null;
 };
 

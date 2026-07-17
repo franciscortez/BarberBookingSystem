@@ -4,6 +4,7 @@ import {
   register,
   userLogin,
   barberLogin,
+  refresh,
   logout,
   me,
 } from "../controller/auth.controller";
@@ -22,6 +23,9 @@ router.post("/user/login", authLimiter, userLogin);
 
 // Barber login
 router.post("/barber/login", authLimiter, barberLogin);
+
+// Token refresh
+router.post("/refresh", authLimiter, refresh);
 
 // Logout (clears cookie)
 router.post("/logout", logout);
