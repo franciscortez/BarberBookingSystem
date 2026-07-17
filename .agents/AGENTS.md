@@ -100,7 +100,8 @@
 
 ## Git Operations
 
-- **Commit Only**: Only stage (`git add`) and commit (`git commit`) changes when asked. Never push (`git push`) changes to remote repository.
+- **Commit Only**: Only stage (`git add`) and commit (`git commit`) changes when explicitly instructed by the user (e.g., "commit changes"). Do not automatically stage or commit files upon completing an implementation task.
+- **Never Push**: Never push (`git push`) changes to the remote repository.
 
 ## TypeScript Type-Safe Imports & Exports
 
