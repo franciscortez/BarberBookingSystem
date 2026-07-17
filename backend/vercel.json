@@ -11,11 +11,5 @@
       "src": "/(.*)",
       "dest": "index.ts"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/cleanup",
-      "schedule": "*/5 * * * *"
-    }
   ]
 }
