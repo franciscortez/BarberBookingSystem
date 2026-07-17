@@ -62,7 +62,7 @@ const createPayMongoCheckout = async (
             quantity: 1,
           },
         ],
-        payment_method_types: ["card", "gcash", "paymaya", "grab_pay"],
+        payment_method_types: ["card", "gcash", "paymaya", "grab_pay", "qrph"],
         description,
         success_url: buildFrontendUrl(
           `/success?token=${encodeURIComponent(managementToken)}`,
