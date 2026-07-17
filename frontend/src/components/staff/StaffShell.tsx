@@ -43,11 +43,20 @@ const StaffShell: React.FC<{ role: "admin" | "barber" }> = ({ role }) => {
       <aside
         className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-200 bg-slate-100 p-4 transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="mb-8 px-2 pt-2">
-          <p className="font-bold text-slate-900">Gentlemen&apos;s Quarters</p>
-          <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-amber-600">
-            {role} portal
-          </p>
+        <div className="mb-8 px-2 pt-2 flex items-center gap-3">
+          <img
+            src="/favicon.svg"
+            alt="Gentlemen's Quarters Logo"
+            className="w-8 h-8 object-contain"
+          />
+          <div>
+            <p className="font-bold text-slate-900 leading-tight">
+              Gentlemen&apos;s Quarters
+            </p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">
+              {role} portal
+            </p>
+          </div>
         </div>
         <nav className="space-y-1">
           {links.map(([label, path, Icon]) => (

@@ -1,14 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import {
-  Scissors,
-  Menu,
-  X,
-  Calendar,
-  LogIn,
-  LogOut,
-  ChevronDown,
-} from "lucide-react";
+import { Menu, X, Calendar, LogIn, LogOut, ChevronDown } from "lucide-react";
 import { preloadBookingRoute, preloadLoginRoute } from "../routes/lazyRoutes";
 import { useAuth } from "../hooks/useAuth";
 

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Scissors, MapPin, Phone, Mail, ArrowUpRight } from "lucide-react";
+import { MapPin, Phone, Mail, ArrowUpRight } from "lucide-react";
 import { preloadBookingRoute } from "../routes/lazyRoutes";
 
 const Footer: React.FC = () => {
@@ -43,11 +43,13 @@ const Footer: React.FC = () => {
             <Link
               to="/"
               onClick={handleHomeClick}
-              className="flex items-center gap-2 text-white hover:text-amber-400 transition-colors duration-300 group"
+              className="flex items-center gap-3 text-white hover:text-amber-400 transition-colors duration-300 group"
             >
-              <div className="p-2 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-zinc-950 group-hover:scale-105 transition-transform duration-300">
-                <Scissors className="w-4 h-4" />
-              </div>
+              <img
+                src="/favicon.svg"
+                alt="Gentlemen's Quarters Logo"
+                className="w-8 h-8 object-contain group-hover:scale-105 transition-transform duration-300"
+              />
               <span className="font-bold text-base tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-300 group-hover:from-white group-hover:to-amber-400 transition-all duration-300">
                 Gentlemen's Quarters
               </span>
