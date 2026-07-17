@@ -78,6 +78,22 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/barber", staffBarberRoutes);
 
+app.get("/api/cron/cleanup", async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (
+    process.env.NODE_ENV === "production" &&
+    authHeader !== `Bearer ${process.env.CRON_SECRET}`
+  ) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  try {
+    await cleanupExpiredPendingBookings();
+    res.json({ success: true, message: "Cleanup completed" });
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.get("/", (req, res) => {
   res.json({ message: "Barber Booking System API is running" });
 });
@@ -96,9 +112,11 @@ app.get("/health", async (req, res) => {
 });
 
 if (process.env.NODE_ENV !== "test") {
-  // Execute clean-up task on start and repeat every 5 minutes
-  cleanupExpiredPendingBookings();
-  setInterval(cleanupExpiredPendingBookings, 5 * 60 * 1000);
+  if (!process.env.VERCEL) {
+    // Execute clean-up task on start and repeat every 5 minutes
+    cleanupExpiredPendingBookings();
+    setInterval(cleanupExpiredPendingBookings, 5 * 60 * 1000);
+  }
 
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
