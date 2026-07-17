@@ -13,7 +13,6 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "npx prettier --write \"**/*.ts\"",
     "format:check": "npx prettier --check \"**/*.ts\"",
-
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -33,6 +32,7 @@
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^9.0.3",
     "pg": "^8.20.0",

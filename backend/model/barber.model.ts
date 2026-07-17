@@ -1,6 +1,6 @@
 import pool = require("../config/database");
 const db = pool.db;
-import { barbers } from "../config/db/schema";
+import { barbers, users } from "../config/db/schema";
 import { eq, asc, sql, and } from "drizzle-orm";
 
 import { Barber } from "../types";
@@ -56,9 +56,9 @@ export const deleteBarber = async (barberId: string): Promise<boolean> => {
     .where(eq(barbers.id, barberId))
     .returning();
   if (rows[0]?.user_id)
-    await pool.query(
-      "UPDATE users SET is_active=false, updated_at=CURRENT_TIMESTAMP WHERE id=$1",
-      [rows[0].user_id],
-    );
+    await db
+      .update(users)
+      .set({ is_active: false, updated_at: sql`CURRENT_TIMESTAMP` })
+      .where(eq(users.id, rows[0].user_id));
   return rows.length > 0;
 };

@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
 import dotenv from "dotenv";
 import pool = require("./config/database");
 import { buildCorsOptions } from "./config/cors";
@@ -25,6 +26,7 @@ if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 }
 
+app.use(helmet());
 app.use(cors(buildCorsOptions()));
 app.use(cookieParser());
 app.use("/api/payments/webhook", express.raw({ type: "application/json" }));

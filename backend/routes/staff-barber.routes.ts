@@ -14,7 +14,6 @@ router.patch("/appointments/:id/status", c.barberStatus);
 router.patch("/appointments/:id/schedule", c.barberReschedule);
 
 router.get("/availability", c.barberAvailability);
-router.put("/availability/hours", c.barberHours);
 router.post("/availability/blocks", c.barberAddBlock);
 router.delete("/availability/blocks/:id", c.barberDeleteBlock);
 

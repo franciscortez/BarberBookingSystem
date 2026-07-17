@@ -51,6 +51,7 @@ export interface StaffDashboard {
     customer_name: string;
     appointment_date: string;
     start_time: string;
+    service_name?: string;
   } | null;
 }
 export interface WorkingHour {

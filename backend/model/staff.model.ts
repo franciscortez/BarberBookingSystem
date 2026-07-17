@@ -1,4 +1,16 @@
 import pool = require("../config/database");
+const db = pool.db;
+import {
+  appointments,
+  barbers,
+  services,
+  payments,
+  users,
+  barber_working_hours,
+  barber_availability_blocks,
+  barber_invitations,
+} from "../config/db/schema";
+import { eq, and, or, sql, ilike, desc, asc, gte } from "drizzle-orm";
 import {
   AppointmentFilters,
   BarberProfileInput,
@@ -9,52 +21,78 @@ import {
 export const getBarberIdForUser = async (
   userId: string,
 ): Promise<string | null> => {
-  const result = await pool.query("SELECT id FROM barbers WHERE user_id = $1", [
-    userId,
-  ]);
-  return result.rows[0]?.id ?? null;
+  const result = await db
+    .select({ id: barbers.id })
+    .from(barbers)
+    .where(eq(barbers.user_id, userId));
+  return result[0]?.id ?? null;
 };
 
 export const listAppointments = async (
   filters: AppointmentFilters,
   ownerBarberId?: string,
 ) => {
-  const values: unknown[] = [];
-  const where: string[] = [];
-  const add = (value: unknown) => {
-    values.push(value);
-    return `$${values.length}`;
-  };
-  if (ownerBarberId) where.push(`a.barber_id = ${add(ownerBarberId)}`);
-  else if (filters.barberId)
-    where.push(`a.barber_id = ${add(filters.barberId)}`);
-  if (filters.date) where.push(`a.appointment_date = ${add(filters.date)}`);
-  if (filters.status) where.push(`a.status = ${add(filters.status)}`);
-  if (filters.serviceId) where.push(`a.service_id = ${add(filters.serviceId)}`);
-  if (filters.paymentStatus)
-    where.push(`p.status = ${add(filters.paymentStatus)}`);
+  const conditions = [];
+  if (ownerBarberId) {
+    conditions.push(eq(appointments.barber_id, ownerBarberId));
+  } else if (filters.barberId) {
+    conditions.push(eq(appointments.barber_id, filters.barberId));
+  }
+  if (filters.date) {
+    conditions.push(eq(appointments.appointment_date, filters.date));
+  }
+  if (filters.status) {
+    conditions.push(eq(appointments.status, filters.status));
+  }
+  if (filters.serviceId) {
+    conditions.push(eq(appointments.service_id, filters.serviceId));
+  }
+  if (filters.paymentStatus) {
+    conditions.push(eq(payments.status, filters.paymentStatus));
+  }
   if (filters.search) {
-    const search = add(`%${filters.search}%`);
-    where.push(
-      `(a.customer_name ILIKE ${search} OR a.customer_email ILIKE ${search} OR a.customer_phone ILIKE ${search})`,
+    const search = `%${filters.search}%`;
+    conditions.push(
+      or(
+        ilike(appointments.customer_name, search),
+        ilike(appointments.customer_email, search),
+        ilike(appointments.customer_phone, search),
+      ),
     );
   }
-  const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
-  const result = await pool.query(
-    `
-    SELECT a.id, a.customer_name, a.customer_phone, a.customer_email, a.barber_id, a.service_id,
-      TO_CHAR(a.appointment_date, 'YYYY-MM-DD') appointment_date, a.start_time, a.end_time, a.status,
-      b.name barber_name, s.name service_name, s.total_price, s.downpayment_amount,
-      p.status payment_status, p.amount payment_amount, p.paymongo_payment_id
-    FROM appointments a
-    LEFT JOIN barbers b ON b.id = a.barber_id
-    LEFT JOIN services s ON s.id = a.service_id
-    LEFT JOIN payments p ON p.appointment_id = a.id
-    ${clause}
-    ORDER BY a.appointment_date DESC, a.start_time DESC LIMIT 250`,
-    values,
-  );
-  return result.rows;
+
+  const query = db
+    .select({
+      id: appointments.id,
+      customer_name: appointments.customer_name,
+      customer_phone: appointments.customer_phone,
+      customer_email: appointments.customer_email,
+      barber_id: sql<string>`${appointments.barber_id}`,
+      service_id: sql<string>`${appointments.service_id}`,
+      appointment_date: sql<string>`TO_CHAR(${appointments.appointment_date}, 'YYYY-MM-DD')`,
+      start_time: appointments.start_time,
+      end_time: appointments.end_time,
+      status: appointments.status,
+      barber_name: barbers.name,
+      service_name: services.name,
+      total_price: services.total_price,
+      downpayment_amount: services.downpayment_amount,
+      payment_status: payments.status,
+      payment_amount: payments.amount,
+      paymongo_payment_id: payments.paymongo_payment_id,
+    })
+    .from(appointments)
+    .leftJoin(barbers, eq(barbers.id, appointments.barber_id))
+    .leftJoin(services, eq(services.id, appointments.service_id))
+    .leftJoin(payments, eq(payments.appointment_id, appointments.id));
+
+  if (conditions.length > 0) {
+    query.where(and(...conditions));
+  }
+
+  return await query
+    .orderBy(desc(appointments.appointment_date), desc(appointments.start_time))
+    .limit(250);
 };
 
 export const getAppointment = async (id: string, ownerBarberId?: string) => {
@@ -64,195 +102,299 @@ export const getAppointment = async (id: string, ownerBarberId?: string) => {
 };
 
 export const updateAppointmentStatus = async (id: string, status: string) => {
-  const result = await pool.query(
-    "UPDATE appointments SET status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
-    [id, status],
-  );
-  return result.rows[0] ?? null;
+  const result = await db
+    .update(appointments)
+    .set({ status, updated_at: sql`CURRENT_TIMESTAMP` })
+    .where(eq(appointments.id, id))
+    .returning();
+  return result[0] ?? null;
 };
 
 export const dashboard = async (ownerBarberId?: string) => {
-  const values: unknown[] = [];
-  const owner = ownerBarberId ? "AND a.barber_id = $1" : "";
-  if (ownerBarberId) values.push(ownerBarberId);
-  const result = await pool.query(
-    `SELECT
-    COUNT(*) FILTER (WHERE a.appointment_date = CURRENT_DATE) today,
-    COUNT(*) FILTER (WHERE a.appointment_date >= CURRENT_DATE AND a.status = 'confirmed') upcoming,
-    COUNT(*) FILTER (WHERE a.status = 'confirmed') confirmed,
-    COUNT(*) FILTER (WHERE a.status = 'completed') completed,
-    COUNT(*) FILTER (WHERE a.status = 'cancelled') cancelled,
-    COUNT(*) FILTER (WHERE a.status = 'no_show') no_show
-    FROM appointments a WHERE TRUE ${owner}`,
-    values,
-  );
-  const next = await pool.query(
-    `SELECT a.id, a.customer_name, TO_CHAR(a.appointment_date, 'YYYY-MM-DD') appointment_date, a.start_time
-    FROM appointments a WHERE a.status = 'confirmed' AND (a.appointment_date > CURRENT_DATE OR (a.appointment_date = CURRENT_DATE AND a.start_time > CURRENT_TIME)) ${owner}
-    ORDER BY a.appointment_date, a.start_time LIMIT 1`,
-    values,
-  );
-  return { ...result.rows[0], next_appointment: next.rows[0] ?? null };
+  const conditions = [];
+  if (ownerBarberId) {
+    conditions.push(eq(appointments.barber_id, ownerBarberId));
+  }
+
+  const statsQuery = db
+    .select({
+      today: sql<string>`COUNT(*) FILTER (WHERE ${appointments.appointment_date} = CURRENT_DATE)::text`,
+      upcoming: sql<string>`COUNT(*) FILTER (WHERE ${appointments.appointment_date} >= CURRENT_DATE AND ${appointments.status} = 'confirmed')::text`,
+      confirmed: sql<string>`COUNT(*) FILTER (WHERE ${appointments.status} = 'confirmed')::text`,
+      completed: sql<string>`COUNT(*) FILTER (WHERE ${appointments.status} = 'completed')::text`,
+      cancelled: sql<string>`COUNT(*) FILTER (WHERE ${appointments.status} = 'cancelled')::text`,
+      no_show: sql<string>`COUNT(*) FILTER (WHERE ${appointments.status} = 'no_show')::text`,
+    })
+    .from(appointments);
+
+  if (conditions.length > 0) {
+    statsQuery.where(and(...conditions));
+  }
+  const statsResult = await statsQuery;
+
+  const nextConditions = [
+    eq(appointments.status, "confirmed"),
+    sql`(${appointments.appointment_date} > CURRENT_DATE OR (${appointments.appointment_date} = CURRENT_DATE AND ${appointments.start_time} > CURRENT_TIME))`,
+  ];
+  if (ownerBarberId) {
+    nextConditions.push(eq(appointments.barber_id, ownerBarberId));
+  }
+
+  const nextResult = await db
+    .select({
+      id: appointments.id,
+      customer_name: appointments.customer_name,
+      appointment_date: sql<string>`TO_CHAR(${appointments.appointment_date}, 'YYYY-MM-DD')`,
+      start_time: appointments.start_time,
+      service_name: services.name,
+    })
+    .from(appointments)
+    .leftJoin(services, eq(services.id, appointments.service_id))
+    .where(and(...nextConditions))
+    .orderBy(asc(appointments.appointment_date), asc(appointments.start_time))
+    .limit(1);
+
+  return {
+    ...statsResult[0],
+    next_appointment: nextResult[0] ?? null,
+  };
 };
 
 export const listBarbers = async () =>
-  (
-    await pool.query(
-      `SELECT b.id, b.user_id, b.name, b.email, b.phone, b.is_active, b.created_at, u.is_active account_active FROM barbers b LEFT JOIN users u ON u.id=b.user_id ORDER BY b.name`,
-    )
-  ).rows;
-export const getBarber = async (id: string) =>
-  (
-    await pool.query(
-      "SELECT b.*, u.phone user_phone FROM barbers b LEFT JOIN users u ON u.id=b.user_id WHERE b.id=$1",
-      [id],
-    )
-  ).rows[0] ?? null;
+  await db
+    .select({
+      id: barbers.id,
+      user_id: barbers.user_id,
+      name: barbers.name,
+      email: barbers.email,
+      phone: barbers.phone,
+      is_active: barbers.is_active,
+      created_at: barbers.created_at,
+      account_active: users.is_active,
+    })
+    .from(barbers)
+    .leftJoin(users, eq(users.id, barbers.user_id))
+    .orderBy(asc(barbers.name));
+
+export const getBarber = async (id: string) => {
+  const rows = await db
+    .select({
+      id: barbers.id,
+      user_id: barbers.user_id,
+      name: barbers.name,
+      email: barbers.email,
+      phone: barbers.phone,
+      is_active: barbers.is_active,
+      created_at: barbers.created_at,
+      updated_at: barbers.updated_at,
+      user_phone: users.phone,
+    })
+    .from(barbers)
+    .leftJoin(users, eq(users.id, barbers.user_id))
+    .where(eq(barbers.id, id));
+  return rows[0] ?? null;
+};
+
 export const updateBarberProfile = async (
   id: string,
   input: BarberProfileInput,
 ) => {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const result = await client.query(
-      "UPDATE barbers SET name=$2, phone=$3, updated_at=CURRENT_TIMESTAMP WHERE id=$1 RETURNING *",
-      [id, input.name, input.phone],
-    );
-    if (result.rows[0]?.user_id)
-      await client.query(
-        "UPDATE users SET name=$2, phone=$3, updated_at=CURRENT_TIMESTAMP WHERE id=$1",
-        [result.rows[0].user_id, input.name, input.phone],
-      );
-    await client.query("COMMIT");
-    return result.rows[0] ?? null;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+  return await db.transaction(async (tx) => {
+    const result = await tx
+      .update(barbers)
+      .set({
+        name: input.name,
+        phone: input.phone,
+        updated_at: sql`CURRENT_TIMESTAMP`,
+      })
+      .where(eq(barbers.id, id))
+      .returning();
+
+    const barber = result[0];
+    if (barber?.user_id) {
+      await tx
+        .update(users)
+        .set({
+          name: input.name,
+          phone: input.phone,
+          updated_at: sql`CURRENT_TIMESTAMP`,
+        })
+        .where(eq(users.id, barber.user_id));
+    }
+    return barber ?? null;
+  });
 };
+
 export const setBarberActive = async (id: string, active: boolean) => {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const result = await client.query(
-      "UPDATE barbers SET is_active=$2, updated_at=CURRENT_TIMESTAMP WHERE id=$1 RETURNING *",
-      [id, active],
-    );
-    if (result.rows[0]?.user_id)
-      await client.query(
-        "UPDATE users SET is_active=$2, updated_at=CURRENT_TIMESTAMP WHERE id=$1",
-        [result.rows[0].user_id, active],
-      );
-    await client.query("COMMIT");
-    return result.rows[0] ?? null;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+  return await db.transaction(async (tx) => {
+    const result = await tx
+      .update(barbers)
+      .set({
+        is_active: active,
+        updated_at: sql`CURRENT_TIMESTAMP`,
+      })
+      .where(eq(barbers.id, id))
+      .returning();
+
+    const barber = result[0];
+    if (barber?.user_id) {
+      await tx
+        .update(users)
+        .set({
+          is_active: active,
+          updated_at: sql`CURRENT_TIMESTAMP`,
+        })
+        .where(eq(users.id, barber.user_id));
+    }
+    return barber ?? null;
+  });
 };
 
 export const deleteBarber = async (id: string) => {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const barber = await client.query(
-      "SELECT user_id FROM barbers WHERE id=$1",
-      [id],
-    );
-    const userId = barber.rows[0]?.user_id;
-    const result = await client.query(
-      "DELETE FROM barbers WHERE id=$1 RETURNING id",
-      [id],
-    );
+  return await db.transaction(async (tx) => {
+    const barber = await tx
+      .select({ user_id: barbers.user_id })
+      .from(barbers)
+      .where(eq(barbers.id, id));
+    const userId = barber[0]?.user_id;
+
+    const result = await tx
+      .delete(barbers)
+      .where(eq(barbers.id, id))
+      .returning({ id: barbers.id });
+
     if (userId) {
-      await client.query("DELETE FROM users WHERE id=$1", [userId]);
+      await tx.delete(users).where(eq(users.id, userId));
     }
-    await client.query("COMMIT");
-    return result.rows[0] ?? null;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+    return result[0] ?? null;
+  });
 };
 
 export const listPayments = async () =>
-  (
-    await pool.query(`SELECT p.id, p.amount, p.status, p.paymongo_checkout_id, p.paymongo_payment_id, p.created_at,
-  a.id appointment_id, a.customer_name, a.customer_email, b.name barber_name
-  FROM payments p LEFT JOIN appointments a ON a.id=p.appointment_id LEFT JOIN barbers b ON b.id=a.barber_id ORDER BY p.created_at DESC LIMIT 250`)
-  ).rows;
+  await db
+    .select({
+      id: payments.id,
+      amount: payments.amount,
+      status: payments.status,
+      paymongo_checkout_id: payments.paymongo_checkout_id,
+      paymongo_payment_id: payments.paymongo_payment_id,
+      created_at: payments.created_at,
+      appointment_id: appointments.id,
+      customer_name: appointments.customer_name,
+      customer_email: appointments.customer_email,
+      barber_name: barbers.name,
+    })
+    .from(payments)
+    .leftJoin(appointments, eq(appointments.id, payments.appointment_id))
+    .leftJoin(barbers, eq(barbers.id, appointments.barber_id))
+    .orderBy(desc(payments.created_at))
+    .limit(250);
 
 export const getAvailability = async (barberId: string) => ({
-  hours: (
-    await pool.query(
-      "SELECT id, weekday, start_time, end_time FROM barber_working_hours WHERE barber_id=$1 ORDER BY weekday, start_time",
-      [barberId],
+  hours: await db
+    .select({
+      id: barber_working_hours.id,
+      weekday: barber_working_hours.weekday,
+      start_time: barber_working_hours.start_time,
+      end_time: barber_working_hours.end_time,
+    })
+    .from(barber_working_hours)
+    .where(eq(barber_working_hours.barber_id, barberId))
+    .orderBy(
+      asc(barber_working_hours.weekday),
+      asc(barber_working_hours.start_time),
+    ),
+  blocks: await db
+    .select({
+      id: barber_availability_blocks.id,
+      block_date: sql<string>`TO_CHAR(${barber_availability_blocks.block_date}, 'YYYY-MM-DD')`,
+      start_time: barber_availability_blocks.start_time,
+      end_time: barber_availability_blocks.end_time,
+      reason: barber_availability_blocks.reason,
+    })
+    .from(barber_availability_blocks)
+    .where(
+      and(
+        eq(barber_availability_blocks.barber_id, barberId),
+        gte(barber_availability_blocks.block_date, sql`CURRENT_DATE`),
+      ),
     )
-  ).rows,
-  blocks: (
-    await pool.query(
-      "SELECT id, TO_CHAR(block_date, 'YYYY-MM-DD') block_date, start_time, end_time, reason FROM barber_availability_blocks WHERE barber_id=$1 AND block_date >= CURRENT_DATE ORDER BY block_date, start_time",
-      [barberId],
-    )
-  ).rows,
+    .orderBy(
+      asc(barber_availability_blocks.block_date),
+      asc(barber_availability_blocks.start_time),
+    ),
 });
+
 export const replaceWorkingHours = async (
   barberId: string,
   hours: WorkingHourInput[],
 ) => {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    await client.query("DELETE FROM barber_working_hours WHERE barber_id=$1", [
-      barberId,
-    ]);
-    for (const hour of hours)
-      await client.query(
-        "INSERT INTO barber_working_hours (barber_id, weekday, start_time, end_time) VALUES ($1,$2,$3,$4)",
-        [barberId, hour.weekday, hour.start_time, hour.end_time],
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(barber_working_hours)
+      .where(eq(barber_working_hours.barber_id, barberId));
+    if (hours.length > 0) {
+      await tx.insert(barber_working_hours).values(
+        hours.map((hour) => ({
+          barber_id: barberId,
+          weekday: hour.weekday,
+          start_time: hour.start_time,
+          end_time: hour.end_time,
+        })),
       );
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+    }
+  });
 };
+
 export const addAvailabilityBlock = async (
   barberId: string,
   block: AvailabilityBlockInput,
-) =>
-  (
-    await pool.query(
-      "INSERT INTO barber_availability_blocks (barber_id, block_date, start_time, end_time, reason) VALUES ($1,$2,$3,$4,$5) RETURNING *",
-      [
-        barberId,
-        block.block_date,
-        block.start_time,
-        block.end_time,
-        block.reason ?? null,
-      ],
+) => {
+  const rows = await db
+    .insert(barber_availability_blocks)
+    .values({
+      barber_id: barberId,
+      block_date: block.block_date,
+      start_time: block.start_time,
+      end_time: block.end_time,
+      reason: block.reason ?? null,
+    })
+    .returning();
+  return rows[0];
+};
+
+export const deleteAvailabilityBlock = async (barberId: string, id: string) => {
+  const rows = await db
+    .delete(barber_availability_blocks)
+    .where(
+      and(
+        eq(barber_availability_blocks.id, id),
+        eq(barber_availability_blocks.barber_id, barberId),
+      ),
     )
-  ).rows[0];
-export const deleteAvailabilityBlock = async (barberId: string, id: string) =>
-  (
-    await pool.query(
-      "DELETE FROM barber_availability_blocks WHERE id=$1 AND barber_id=$2 RETURNING id",
-      [id, barberId],
-    )
-  ).rows[0] ?? null;
+    .returning({ id: barber_availability_blocks.id });
+  return rows[0] ?? null;
+};
 
 export const listInvitations = async () =>
-  (
-    await pool.query(`SELECT id,email,name,phone,expires_at,accepted_at,revoked_at,created_at,
-  CASE WHEN accepted_at IS NOT NULL THEN 'accepted' WHEN revoked_at IS NOT NULL THEN 'revoked' WHEN expires_at < CURRENT_TIMESTAMP THEN 'expired' ELSE 'pending' END status
-  FROM barber_invitations ORDER BY created_at DESC`)
-  ).rows;
+  await db
+    .select({
+      id: barber_invitations.id,
+      email: barber_invitations.email,
+      name: barber_invitations.name,
+      phone: barber_invitations.phone,
+      expires_at: barber_invitations.expires_at,
+      accepted_at: barber_invitations.accepted_at,
+      revoked_at: barber_invitations.revoked_at,
+      created_at: barber_invitations.created_at,
+      status: sql<string>`
+        CASE
+          WHEN ${barber_invitations.accepted_at} IS NOT NULL THEN 'accepted'
+          WHEN ${barber_invitations.revoked_at} IS NOT NULL THEN 'revoked'
+          WHEN ${barber_invitations.expires_at} < CURRENT_TIMESTAMP THEN 'expired'
+          ELSE 'pending'
+        END
+      `,
+    })
+    .from(barber_invitations)
+    .orderBy(desc(barber_invitations.created_at));

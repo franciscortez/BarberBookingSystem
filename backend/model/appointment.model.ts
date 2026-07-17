@@ -197,8 +197,10 @@ export const lockBarber = async (
  */
 export const getAppointmentDetails = async (
   id: string,
+  client: any = pool,
 ): Promise<AppointmentDetails | null> => {
-  const rows = await db
+  const tx = getDb(client);
+  const rows = await tx
     .select({
       id: appointments.id,
       customer_name: appointments.customer_name,

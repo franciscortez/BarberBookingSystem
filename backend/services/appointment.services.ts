@@ -143,72 +143,64 @@ export const createBooking = async (
   });
   if (!slotValidation.valid) throw AppError.badRequest(slotValidation.error!);
 
-  // DB transaction — use finally to guarantee client release
-  const client = await pool.connect();
-  let released = false;
   let newAppointment!: Appointment;
   let newPayment: any;
 
   try {
-    await client.query("BEGIN");
-    await AppointmentModel.lockBarber(barber_id, client);
+    const res = await pool.db.transaction(async (tx) => {
+      await AppointmentModel.lockBarber(barber_id, tx);
 
-    const isAvailable = await AppointmentModel.isSlotAvailable(
-      barber_id,
-      appointment_date,
-      start_time,
-      end_time,
-      client,
-    );
-    if (!isAvailable) {
-      await client.query("ROLLBACK");
-      released = true;
-      client.release();
-      throw AppError.conflict("The requested time slot is no longer available");
-    }
-
-    const managementToken = crypto.randomUUID();
-    newAppointment = await AppointmentModel.createAppointment(
-      {
-        customer_name,
-        customer_phone,
-        customer_email,
+      const isAvailable = await AppointmentModel.isSlotAvailable(
         barber_id,
-        service_id,
         appointment_date,
         start_time,
         end_time,
-        management_token: managementToken,
-        user_id: userId,
-      },
-      client,
-    );
+        tx,
+      );
+      if (!isAvailable) {
+        throw AppError.conflict(
+          "The requested time slot is no longer available",
+        );
+      }
 
-    newPayment = await PaymentModel.createPayment(
-      {
-        appointment_id: newAppointment.id,
-        amount: service.downpayment_amount,
-        idempotency_key: crypto.randomUUID(),
-      },
-      client,
-    );
+      const managementToken = crypto.randomUUID();
+      const createdAppt = await AppointmentModel.createAppointment(
+        {
+          customer_name,
+          customer_phone,
+          customer_email,
+          barber_id,
+          service_id,
+          appointment_date,
+          start_time,
+          end_time,
+          management_token: managementToken,
+          user_id: userId,
+        },
+        tx,
+      );
 
-    await client.query("COMMIT");
+      const createdPay = await PaymentModel.createPayment(
+        {
+          appointment_id: createdAppt.id,
+          amount: service.downpayment_amount,
+          idempotency_key: crypto.randomUUID(),
+        },
+        tx,
+      );
+
+      return { createdAppt, createdPay };
+    });
+
+    newAppointment = res.createdAppt;
+    newPayment = res.createdPay;
   } catch (dbErr: any) {
-    if (!released) {
-      await client.query("ROLLBACK");
-      client.release();
-    }
     if (dbErr instanceof AppError) throw dbErr;
     throw AppError.internal(
       "Failed to process booking in database",
       dbErr.message,
     );
   }
-
-  // Only reaches here if transaction succeeded — client already released above in catch
-  // So manually release here (not in a finally that would double-release)
-  client.release();
 
   // Call PayMongo outside transaction
   try {
@@ -261,21 +253,16 @@ export const rescheduleBooking = async (
 ): Promise<AppointmentDetails> => {
   const { token, appointment_date, start_time } = input;
 
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-
+  const fullDetails = await pool.db.transaction(async (tx) => {
     const appointment = await AppointmentModel.getAppointmentByManagementToken(
       token,
-      client,
+      tx,
       true,
     );
     if (!appointment) {
-      await client.query("ROLLBACK");
       throw AppError.notFound("Appointment not found");
     }
     if (appointment.status !== "confirmed") {
-      await client.query("ROLLBACK");
       throw AppError.conflict("Only confirmed appointments can be managed");
     }
 
@@ -283,7 +270,6 @@ export const rescheduleBooking = async (
       appointment.service_id as string,
     );
     if (!service) {
-      await client.query("ROLLBACK");
       throw AppError.notFound("Service not found");
     }
 
@@ -299,42 +285,34 @@ export const rescheduleBooking = async (
       durationMins: service.duration_mins,
     });
     if (!slotValidation.valid) {
-      await client.query("ROLLBACK");
       throw AppError.badRequest(slotValidation.error!);
     }
 
-    await AppointmentModel.lockBarber(appointment.barber_id as string, client);
+    await AppointmentModel.lockBarber(appointment.barber_id as string, tx);
 
     const isAvailable = await AppointmentModel.isSlotAvailable(
       appointment.barber_id as string,
       appointment_date,
       start_time,
       end_time,
-      client,
+      tx,
       appointment.id,
     );
     if (!isAvailable) {
-      await client.query("ROLLBACK");
       throw AppError.conflict("The requested time slot is no longer available");
     }
 
     const updated = await AppointmentModel.updateAppointmentSchedule(
       appointment.id,
       { appointment_date, start_time, end_time },
-      client,
+      tx,
     );
-    await client.query("COMMIT");
 
-    const fullDetails = await AppointmentModel.getAppointmentDetails(
-      updated!.id,
-    );
-    if (fullDetails) enqueueEmailJob("rescheduleConfirmation", fullDetails);
-    return fullDetails!;
-  } catch (err) {
-    throw err;
-  } finally {
-    client.release();
-  }
+    return await AppointmentModel.getAppointmentDetails(updated!.id, tx);
+  });
+
+  if (fullDetails) enqueueEmailJob("rescheduleConfirmation", fullDetails);
+  return fullDetails!;
 };
 
 export const cancelBooking = async (
@@ -342,39 +320,28 @@ export const cancelBooking = async (
 ): Promise<AppointmentDetails> => {
   const { token } = input;
 
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-
+  const fullDetails = await pool.db.transaction(async (tx) => {
     const appointment = await AppointmentModel.getAppointmentByManagementToken(
       token,
-      client,
+      tx,
       true,
     );
     if (!appointment) {
-      await client.query("ROLLBACK");
       throw AppError.notFound("Appointment not found");
     }
     if (appointment.status !== "confirmed") {
-      await client.query("ROLLBACK");
       throw AppError.conflict("Only confirmed appointments can be managed");
     }
 
     const updated = await AppointmentModel.updateAppointmentStatus(
       appointment.id,
       "cancelled",
-      client,
+      tx,
     );
-    await client.query("COMMIT");
 
-    const fullDetails = await AppointmentModel.getAppointmentDetails(
-      updated!.id,
-    );
-    if (fullDetails) enqueueEmailJob("cancellationConfirmation", fullDetails);
-    return fullDetails!;
-  } catch (err) {
-    throw err;
-  } finally {
-    client.release();
-  }
+    return await AppointmentModel.getAppointmentDetails(updated!.id, tx);
+  });
+
+  if (fullDetails) enqueueEmailJob("cancellationConfirmation", fullDetails);
+  return fullDetails!;
 };

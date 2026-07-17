@@ -17,12 +17,14 @@ interface AvailabilityEditorProps {
   value: StaffAvailability;
   savePath: string;
   onDone: () => Promise<void>;
+  readOnlyHours?: boolean;
 }
 
 export const AvailabilityEditor: React.FC<AvailabilityEditorProps> = ({
   value,
   savePath,
   onDone,
+  readOnlyHours = false,
 }) => {
   const [hours, setHours] = useState<WorkingHour[]>(value.hours);
   const [savingHours, setSavingHours] = useState(false);
@@ -160,6 +162,11 @@ export const AvailabilityEditor: React.FC<AvailabilityEditorProps> = ({
                 <Clock className="w-5 h-5 text-amber-500" />
                 <h2 className="font-bold text-base">Weekly Working Schedule</h2>
               </div>
+              {readOnlyHours && (
+                <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 border border-amber-200">
+                  Managed by Admin
+                </span>
+              )}
             </div>
 
             <div className="space-y-4">
@@ -177,14 +184,16 @@ export const AvailabilityEditor: React.FC<AvailabilityEditorProps> = ({
                       <span className="font-semibold text-sm text-slate-900">
                         {dayName}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => addPeriod(dayIndex)}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 hover:text-amber-700 transition-colors"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Shift</span>
-                      </button>
+                      {!readOnlyHours && (
+                        <button
+                          type="button"
+                          onClick={() => addPeriod(dayIndex)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 hover:text-amber-700 transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Shift</span>
+                        </button>
+                      )}
                     </div>
 
                     {dayPeriods.length === 0 ? (
@@ -200,6 +209,7 @@ export const AvailabilityEditor: React.FC<AvailabilityEditorProps> = ({
                           >
                             <input
                               type="time"
+                              disabled={readOnlyHours}
                               value={period.start_time.slice(0, 5)}
                               onChange={(e) =>
                                 updatePeriod(
@@ -208,13 +218,14 @@ export const AvailabilityEditor: React.FC<AvailabilityEditorProps> = ({
                                   e.target.value,
                                 )
                               }
-                              className="w-32 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-900 focus:border-amber-500 focus:outline-hidden"
+                              className="w-32 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-900 focus:border-amber-500 focus:outline-hidden disabled:bg-slate-100 disabled:text-slate-600"
                             />
                             <span className="text-xs text-slate-400 font-medium">
                               to
                             </span>
                             <input
                               type="time"
+                              disabled={readOnlyHours}
                               value={period.end_time.slice(0, 5)}
                               onChange={(e) =>
                                 updatePeriod(
@@ -223,16 +234,20 @@ export const AvailabilityEditor: React.FC<AvailabilityEditorProps> = ({
                                   e.target.value,
                                 )
                               }
-                              className="w-32 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-900 focus:border-amber-500 focus:outline-hidden"
+                              className="w-32 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-900 focus:border-amber-500 focus:outline-hidden disabled:bg-slate-100 disabled:text-slate-600"
                             />
-                            <button
-                              type="button"
-                              onClick={() => removePeriod(period.originalIndex)}
-                              title="Delete Shift"
-                              className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {!readOnlyHours && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removePeriod(period.originalIndex)
+                                }
+                                title="Delete Shift"
+                                className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -243,17 +258,19 @@ export const AvailabilityEditor: React.FC<AvailabilityEditorProps> = ({
             </div>
           </div>
 
-          <div className="pt-6 mt-6 border-t border-slate-100 flex justify-end">
-            <button
-              type="button"
-              disabled={savingHours}
-              onClick={() => void handleSaveHours()}
-              className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-xs hover:bg-amber-400 transition-colors disabled:opacity-50"
-            >
-              <Clock className="w-4 h-4" />
-              <span>{savingHours ? "Saving..." : "Save Working Hours"}</span>
-            </button>
-          </div>
+          {!readOnlyHours && (
+            <div className="pt-6 mt-6 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                disabled={savingHours}
+                onClick={() => void handleSaveHours()}
+                className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-xs hover:bg-amber-400 transition-colors disabled:opacity-50"
+              >
+                <Clock className="w-4 h-4" />
+                <span>{savingHours ? "Saving..." : "Save Working Hours"}</span>
+              </button>
+            </div>
+          )}
         </section>
 
         {/* Blocked Dates & Overrides Card */}

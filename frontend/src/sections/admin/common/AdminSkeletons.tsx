@@ -203,3 +203,18 @@ export const PaymentsSkeleton: React.FC = () => (
     </div>
   </>
 );
+
+export const BarberFormSkeleton: React.FC = () => (
+  <div className="space-y-4 max-w-2xl animate-pulse">
+    <HeaderSkeleton />
+    <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-2xs">
+      <div className="h-4 w-28 rounded-sm bg-slate-200" />
+      <div className="h-9 w-full rounded-md bg-slate-200" />
+      <div className="h-4 w-36 rounded-sm bg-slate-200" />
+      <div className="h-9 w-full rounded-md bg-slate-200" />
+      <div className="h-4 w-32 rounded-sm bg-slate-200" />
+      <div className="h-9 w-full rounded-md bg-slate-200" />
+      <div className="h-10 w-32 rounded-md bg-slate-200" />
+    </div>
+  </div>
+);
