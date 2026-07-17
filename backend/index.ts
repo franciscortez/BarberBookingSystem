@@ -16,6 +16,7 @@ import adminRoutes = require("./routes/admin.routes");
 import staffBarberRoutes = require("./routes/staff-barber.routes");
 import { generalApiLimiterFallback } from "./middleware/rateLimiters";
 import { errorHandler } from "./middleware/errorHandler";
+import { cleanupExpiredPendingBookings } from "./utils/cleanup";
 
 dotenv.config();
 
@@ -95,6 +96,10 @@ app.get("/health", async (req, res) => {
 });
 
 if (process.env.NODE_ENV !== "test") {
+  // Execute clean-up task on start and repeat every 5 minutes
+  cleanupExpiredPendingBookings();
+  setInterval(cleanupExpiredPendingBookings, 5 * 60 * 1000);
+
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });

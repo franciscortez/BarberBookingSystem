@@ -237,6 +237,33 @@ export const createBooking = async (
   }
 };
 
+const assertLeadTimeForManagement = (appointment: {
+  appointment_date: any;
+  start_time: string;
+}) => {
+  const getLocalDateString = (d: any): string => {
+    if (d instanceof Date) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const date = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${date}`;
+    }
+    return String(d).split("T")[0];
+  };
+
+  const dateStr = getLocalDateString(appointment.appointment_date);
+  const startDateTime = new Date(`${dateStr}T${appointment.start_time}`);
+  const leadTimeThreshold = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  if (
+    Number.isNaN(startDateTime.getTime()) ||
+    startDateTime < leadTimeThreshold
+  ) {
+    throw AppError.badRequest(
+      "Appointments can only be rescheduled or cancelled at least 2 hours in advance",
+    );
+  }
+};
+
 export const getManagedBooking = async (
   token: string,
 ): Promise<AppointmentDetails> => {
@@ -245,6 +272,9 @@ export const getManagedBooking = async (
   if (!appointment) throw AppError.notFound("Appointment not found");
   if (appointment.status !== "confirmed")
     throw AppError.conflict("Only confirmed appointments can be managed");
+
+  assertLeadTimeForManagement(appointment);
+
   return (await AppointmentModel.getAppointmentDetails(appointment.id))!;
 };
 
@@ -265,6 +295,8 @@ export const rescheduleBooking = async (
     if (appointment.status !== "confirmed") {
       throw AppError.conflict("Only confirmed appointments can be managed");
     }
+
+    assertLeadTimeForManagement(appointment);
 
     const service = await ServiceModel.getServiceById(
       appointment.service_id as string,
@@ -332,6 +364,8 @@ export const cancelBooking = async (
     if (appointment.status !== "confirmed") {
       throw AppError.conflict("Only confirmed appointments can be managed");
     }
+
+    assertLeadTimeForManagement(appointment);
 
     const updated = await AppointmentModel.updateAppointmentStatus(
       appointment.id,

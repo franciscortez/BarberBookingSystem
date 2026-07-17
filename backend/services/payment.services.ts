@@ -70,23 +70,18 @@ export const processPaymentPaid = async (
   const checkoutId = eventData.id;
   const externalPaymentId = eventData.attributes?.payments?.[0]?.id ?? null;
 
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-
+  return await pool.db.transaction(async (tx) => {
     const payment = await PaymentModel.getPaymentByCheckoutId(
       checkoutId,
-      client,
+      tx,
       true,
     );
     if (!payment) {
-      await client.query("COMMIT");
       console.warn(`Webhook received for unknown Checkout ID: ${checkoutId}`);
       return null;
     }
 
     if (payment.status === "paid") {
-      await client.query("COMMIT");
       console.log(
         `Duplicate paid webhook ignored for Payment ID: ${payment.id}`,
       );
@@ -96,12 +91,12 @@ export const processPaymentPaid = async (
     await PaymentModel.updatePayment(
       payment.id,
       { status: "paid", paymongo_payment_id: externalPaymentId },
-      client,
+      tx,
     );
 
     const appointment = await AppointmentModel.getAppointmentById(
       payment.appointment_id as string,
-      client,
+      tx,
       true,
     );
     const slotStillAvailable =
@@ -111,7 +106,7 @@ export const processPaymentPaid = async (
         appointment.appointment_date,
         appointment.start_time,
         appointment.end_time,
-        client,
+        tx,
         appointment.id,
       ));
 
@@ -119,9 +114,8 @@ export const processPaymentPaid = async (
       await AppointmentModel.updateAppointmentStatus(
         payment.appointment_id as string,
         "cancelled",
-        client,
+        tx,
       );
-      await client.query("COMMIT");
       console.warn(
         `Slot no longer available after payment; appointment cancelled: ${payment.appointment_id}`,
       );
@@ -131,19 +125,13 @@ export const processPaymentPaid = async (
     await AppointmentModel.updateAppointmentStatus(
       payment.appointment_id as string,
       "confirmed",
-      client,
+      tx,
     );
-    await client.query("COMMIT");
     console.log(
       `Payment confirmed for Appointment ID: ${payment.appointment_id}`,
     );
     return payment.appointment_id;
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 };
 
 export const processPaymentFailed = async (eventData: any): Promise<void> => {
@@ -157,17 +145,13 @@ export const processPaymentFailed = async (eventData: any): Promise<void> => {
     return;
   }
 
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-
+  await pool.db.transaction(async (tx) => {
     const payment = await PaymentModel.getPaymentById(
       referenceNumber,
-      client,
+      tx,
       true,
     );
     if (!payment) {
-      await client.query("COMMIT");
       console.warn(
         `Payment failure webhook could not be matched: ${externalPaymentId}`,
       );
@@ -175,7 +159,6 @@ export const processPaymentFailed = async (eventData: any): Promise<void> => {
     }
 
     if (payment.status === "failed") {
-      await client.query("COMMIT");
       console.log(
         `Duplicate failed webhook ignored for Payment ID: ${payment.id}`,
       );
@@ -183,7 +166,6 @@ export const processPaymentFailed = async (eventData: any): Promise<void> => {
     }
 
     if (payment.status === "paid") {
-      await client.query("COMMIT");
       console.warn(
         `Ignored failed webhook for already paid Payment ID: ${payment.id}`,
       );
@@ -193,23 +175,17 @@ export const processPaymentFailed = async (eventData: any): Promise<void> => {
     await PaymentModel.updatePayment(
       payment.id,
       { status: "failed", paymongo_payment_id: externalPaymentId },
-      client,
+      tx,
     );
     await AppointmentModel.updateAppointmentStatus(
       payment.appointment_id as string,
       "cancelled",
-      client,
+      tx,
     );
-    await client.query("COMMIT");
     console.log(
       `Payment failed and appointment cancelled for Appointment ID: ${payment.appointment_id}`,
     );
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 };
 
 export const handleWebhook = async (req: Request): Promise<void> => {

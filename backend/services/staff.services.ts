@@ -17,6 +17,8 @@ import {
   WorkingHourInput,
   AvailabilityBlockInput,
 } from "../validation/staff.validation";
+import { users, barbers, barber_invitations } from "../config/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 
 const transitions: Record<string, string[]> = {
   confirmed: ["checked_in", "cancelled", "no_show"],
@@ -44,13 +46,13 @@ export const getAppointment = async (id: string, barberId?: string) => {
 export const getDashboard = async (barberId?: string) => {
   const summary = await StaffModel.dashboard(barberId);
   if (barberId) return summary;
-  const [barbers, payments] = await Promise.all([
+  const [barbersList, payments] = await Promise.all([
     StaffModel.listBarbers(),
     StaffModel.listPayments(),
   ]);
   return {
     ...summary,
-    active_barbers: barbers.filter((b) => b.is_active).length,
+    active_barbers: barbersList.filter((b) => b.is_active).length,
     payment_total: payments
       .filter((p) => p.status === "paid")
       .reduce((sum, p) => sum + Number(p.amount), 0),
@@ -99,17 +101,15 @@ export const reschedule = async (
   });
 
   if (!valid.valid) throw AppError.badRequest(valid.error!);
-  const client = await pool.connect();
 
-  try {
-    await client.query("BEGIN");
-    await AppointmentModel.lockBarber(current.barber_id, client);
+  await pool.db.transaction(async (tx) => {
+    await AppointmentModel.lockBarber(current.barber_id, tx);
     const free = await AppointmentModel.isSlotAvailable(
       current.barber_id,
       input.appointment_date,
       input.start_time,
       end,
-      client,
+      tx,
       id,
     );
     if (!free)
@@ -121,16 +121,10 @@ export const reschedule = async (
         start_time: input.start_time,
         end_time: end,
       },
-      client,
+      tx,
     );
+  });
 
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
   const details = await AppointmentModel.getAppointmentDetails(id);
   if (details) enqueueEmailJob("rescheduleConfirmation", details);
   return details;
@@ -194,87 +188,168 @@ export const inviteBarber = async (
   input: InviteBarberInput,
   invitedBy: string,
 ) => {
-  const duplicate = await pool.query(
-    "SELECT 1 FROM users WHERE LOWER(email)=LOWER($1) UNION SELECT 1 FROM barber_invitations WHERE LOWER(email)=LOWER($1) AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP",
-    [input.email],
-  );
-  if (duplicate.rowCount)
+  const emailLower = input.email.toLowerCase();
+
+  const duplicateUsers = await pool.db
+    .select({ id: users.id })
+    .from(users)
+    .where(sql`LOWER(${users.email}) = ${emailLower}`);
+
+  const duplicateInvitations = await pool.db
+    .select({ id: barber_invitations.id })
+    .from(barber_invitations)
+    .where(
+      and(
+        sql`LOWER(${barber_invitations.email}) = ${emailLower}`,
+        sql`accepted_at IS NULL AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP`,
+      ),
+    );
+
+  if (duplicateUsers.length || duplicateInvitations.length)
     throw AppError.conflict("Email already registered or invited");
+
   const token = crypto.randomBytes(32).toString("hex");
   const hash = crypto.createHash("sha256").update(token).digest("hex");
-  const result = await pool.query(
-    "INSERT INTO barber_invitations (email,name,phone,token_hash,invited_by,expires_at) VALUES ($1,$2,$3,$4,$5,CURRENT_TIMESTAMP + INTERVAL '48 hours') RETURNING id,email,name,phone,expires_at,created_at",
-    [input.email, input.name, input.phone, hash, invitedBy],
-  );
+
+  const result = await pool.db
+    .insert(barber_invitations)
+    .values({
+      email: input.email,
+      name: input.name,
+      phone: input.phone,
+      token_hash: hash,
+      invited_by: invitedBy,
+      expires_at: sql`CURRENT_TIMESTAMP + INTERVAL '48 hours'`,
+    })
+    .returning({
+      id: barber_invitations.id,
+      email: barber_invitations.email,
+      name: barber_invitations.name,
+      phone: barber_invitations.phone,
+      expires_at: barber_invitations.expires_at,
+      created_at: barber_invitations.created_at,
+    });
+
   await sendBarberInvitationEmail(input.email, input.name, token);
-  return result.rows[0];
+  return result[0];
 };
 export const revokeInvitation = async (id: string) => {
-  const result = await pool.query(
-    "UPDATE barber_invitations SET revoked_at=CURRENT_TIMESTAMP WHERE id=$1 AND accepted_at IS NULL AND revoked_at IS NULL RETURNING id",
-    [id],
-  );
-  if (!result.rowCount) throw AppError.notFound("Pending invitation not found");
+  const result = await pool.db
+    .update(barber_invitations)
+    .set({ revoked_at: sql`CURRENT_TIMESTAMP` })
+    .where(
+      and(
+        eq(barber_invitations.id, id),
+        sql`accepted_at IS NULL AND revoked_at IS NULL`,
+      ),
+    )
+    .returning({ id: barber_invitations.id });
+
+  if (!result.length) throw AppError.notFound("Pending invitation not found");
 };
 export const resendInvitation = async (id: string) => {
   const token = crypto.randomBytes(32).toString("hex");
   const hash = crypto.createHash("sha256").update(token).digest("hex");
-  const result = await pool.query(
-    "UPDATE barber_invitations SET token_hash=$2, expires_at=CURRENT_TIMESTAMP + INTERVAL '48 hours', updated_at=CURRENT_TIMESTAMP WHERE id=$1 AND accepted_at IS NULL AND revoked_at IS NULL RETURNING email,name,expires_at",
-    [id, hash],
-  );
-  if (!result.rowCount) throw AppError.notFound("Pending invitation not found");
-  await sendBarberInvitationEmail(
-    result.rows[0].email,
-    result.rows[0].name,
-    token,
-  );
-  return result.rows[0];
+
+  const result = await pool.db
+    .update(barber_invitations)
+    .set({
+      token_hash: hash,
+      expires_at: sql`CURRENT_TIMESTAMP + INTERVAL '48 hours'`,
+      updated_at: sql`CURRENT_TIMESTAMP`,
+    })
+    .where(
+      and(
+        eq(barber_invitations.id, id),
+        sql`accepted_at IS NULL AND revoked_at IS NULL`,
+      ),
+    )
+    .returning({
+      email: barber_invitations.email,
+      name: barber_invitations.name,
+      expires_at: barber_invitations.expires_at,
+    });
+
+  if (!result.length) throw AppError.notFound("Pending invitation not found");
+  await sendBarberInvitationEmail(result[0].email, result[0].name, token);
+  return result[0];
 };
 export const validateInvitation = async (token: string) => {
   const hash = crypto.createHash("sha256").update(token).digest("hex");
-  const result = await pool.query(
-    "SELECT email,name,phone,expires_at FROM barber_invitations WHERE token_hash=$1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at>CURRENT_TIMESTAMP",
-    [hash],
-  );
-  if (!result.rowCount)
+
+  const result = await pool.db
+    .select({
+      email: barber_invitations.email,
+      name: barber_invitations.name,
+      phone: barber_invitations.phone,
+      expires_at: barber_invitations.expires_at,
+    })
+    .from(barber_invitations)
+    .where(
+      and(
+        eq(barber_invitations.token_hash, hash),
+        sql`accepted_at IS NULL AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP`,
+      ),
+    );
+
+  if (!result.length)
     throw AppError.badRequest("Invitation is invalid or expired");
-  return result.rows[0];
+  return result[0];
 };
 
 export const acceptInvitation = async (token: string, password: string) => {
   const invite = await validateInvitation(token);
   const hash = crypto.createHash("sha256").update(token).digest("hex");
   const passwordHash = await bcrypt.hash(password, 10);
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const locked = await client.query(
-      "SELECT * FROM barber_invitations WHERE token_hash=$1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at>CURRENT_TIMESTAMP FOR UPDATE",
-      [hash],
-    );
-    if (!locked.rowCount)
+
+  return await pool.db.transaction(async (tx) => {
+    const locked = await tx
+      .select()
+      .from(barber_invitations)
+      .where(
+        and(
+          eq(barber_invitations.token_hash, hash),
+          sql`accepted_at IS NULL AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP`,
+        ),
+      )
+      .for("update");
+
+    if (!locked.length)
       throw AppError.badRequest("Invitation is invalid or expired");
-    const user = await client.query(
-      "INSERT INTO users (name,email,phone,password_hash,role) VALUES ($1,$2,$3,$4,'barber') RETURNING id,name,email,phone,role",
-      [invite.name, invite.email, invite.phone, passwordHash],
-    );
-    await client.query(
-      "INSERT INTO barbers (user_id,name,email,phone) VALUES ($1,$2,$3,$4)",
-      [user.rows[0].id, invite.name, invite.email, invite.phone],
-    );
-    await client.query(
-      "UPDATE barber_invitations SET accepted_at=CURRENT_TIMESTAMP WHERE token_hash=$1",
-      [hash],
-    );
-    await client.query("COMMIT");
-    return user.rows[0];
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+
+    const userRows = await tx
+      .insert(users)
+      .values({
+        name: invite.name,
+        email: invite.email,
+        phone: invite.phone,
+        password_hash: passwordHash,
+        role: "barber",
+      })
+      .returning({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        phone: users.phone,
+        role: users.role,
+      });
+
+    const user = userRows[0];
+
+    await tx.insert(barbers).values({
+      user_id: user.id,
+      name: invite.name,
+      email: invite.email,
+      phone: invite.phone,
+    });
+
+    await tx
+      .update(barber_invitations)
+      .set({ accepted_at: sql`CURRENT_TIMESTAMP` })
+      .where(eq(barber_invitations.token_hash, hash));
+
+    return user;
+  });
 };
 
 export const createWalkinAppointment = async (input: {
@@ -319,30 +394,22 @@ export const createWalkinAppointment = async (input: {
   });
   if (!slotValidation.valid) throw AppError.badRequest(slotValidation.error!);
 
-  const client = await pool.connect();
-  let released = false;
-  let newAppointment!: any;
-
-  try {
-    await client.query("BEGIN");
-    await AppointmentModel.lockBarber(barber_id, client);
+  const newAppointment = await pool.db.transaction(async (tx) => {
+    await AppointmentModel.lockBarber(barber_id, tx);
 
     const isAvailable = await AppointmentModel.isSlotAvailable(
       barber_id,
       appointment_date,
       start_time,
       end_time,
-      client,
+      tx,
     );
     if (!isAvailable) {
-      await client.query("ROLLBACK");
-      released = true;
-      client.release();
       throw AppError.conflict("The requested time slot is no longer available");
     }
 
     const managementToken = crypto.randomUUID();
-    newAppointment = await AppointmentModel.createAppointment(
+    const createdAppt = await AppointmentModel.createAppointment(
       {
         customer_name,
         customer_phone,
@@ -355,31 +422,22 @@ export const createWalkinAppointment = async (input: {
         management_token: managementToken,
         status: "confirmed",
       },
-      client,
+      tx,
     );
 
-    // Create a payment record as immediately paid since it's walk-in (onsite payment)
     const PaymentModel = require("../model/payment.model");
     await PaymentModel.createPayment(
       {
-        appointment_id: newAppointment.id,
+        appointment_id: createdAppt.id,
         amount: service.downpayment_amount,
         status: "paid",
         idempotency_key: crypto.randomUUID(),
       },
-      client,
+      tx,
     );
 
-    await client.query("COMMIT");
-  } catch (dbErr: any) {
-    if (!released) {
-      await client.query("ROLLBACK");
-      client.release();
-    }
-    throw dbErr;
-  }
-
-  client.release();
+    return createdAppt;
+  });
 
   if (customer_email && customer_email.trim()) {
     const details = await AppointmentModel.getAppointmentDetails(
