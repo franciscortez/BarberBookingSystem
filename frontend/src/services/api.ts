@@ -106,6 +106,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
     const requestOptions = {
       credentials: 'include' as const,
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+        ...(fetchOptions.headers as Record<string, string> || {})
+      },
       ...(isCacheableGet ? withoutSignal(fetchOptions) : fetchOptions)
     };
     const promise = fetch(url, requestOptions)
@@ -127,7 +131,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     return promise;
   }
 
-  return fetch(url, { credentials: 'include', ...fetchOptions }).then(response => handleResponse<T>(response));
+  return fetch(url, {
+    credentials: 'include',
+    headers: {
+      'ngrok-skip-browser-warning': 'true',
+      ...(fetchOptions.headers as Record<string, string> || {})
+    },
+    ...fetchOptions
+  }).then(response => handleResponse<T>(response));
 }
 
 export interface CatalogResponse {

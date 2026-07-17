@@ -1,126 +1,62 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/style.css';
 import { Calendar, ChevronLeft, AlertTriangle, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
-import { getManagedBooking, getAvailability, rescheduleBooking } from '../services/api';
-import type { Appointment } from '../types';
-import { bookingDayPickerClassNames, bookingDayPickerModifiersClassNames } from '../utils/dayPicker';
+import type { Appointment } from '../../../types';
+import { bookingDayPickerClassNames, bookingDayPickerModifiersClassNames } from '../../../utils/dayPicker';
 import {
-  buildSlotOptions,
   formatDate as formatDateBase,
   formatTime,
   getStartOfToday,
   parseLocalISODate,
-  toLocalISODate,
   type SlotOption
-} from '../utils/booking';
+} from '../../../utils/booking';
 
 const formatDate = (dateStr: string): string => formatDateBase(dateStr, true);
 
-const RescheduleBooking: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+interface RescheduleSectionProps {
+  token: string | null;
+  appointment: Appointment | null;
+  updatedAppointment: Appointment | null;
+  loadingBooking: boolean;
+  bookingError: string | null;
+  rescheduled: boolean;
+  submitting: boolean;
+  submitError: string | null;
+  selectedDate: string;
+  slotOptions: SlotOption[];
+  loadingSlots: boolean;
+  selectedSlot: { start: string; end: string } | null;
+  availabilityError: string | null;
+  isSelectedDateFullyBooked: boolean;
+  onSelectDate: (date: Date | undefined) => void;
+  onSelectSlot: (slot: SlotOption) => void;
+  onRescheduleSubmit: (e: React.FormEvent) => void;
+}
 
-  const [appointment, setAppointment] = useState<Appointment | null>(null);
-  const [loadingBooking, setLoadingBooking] = useState<boolean>(true);
-  const [bookingError, setBookingError] = useState<string | null>(null);
-
-  const [selectedDate, setSelectedDate] = useState<string>('');
-  const [slotOptions, setSlotOptions] = useState<SlotOption[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
-  const [selectedSlot, setSelectedSlot] = useState<{ start: string; end: string } | null>(null);
-  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
-
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [rescheduled, setRescheduled] = useState<boolean>(false);
-  const [updatedAppointment, setUpdatedAppointment] = useState<Appointment | null>(null);
+const RescheduleSection: React.FC<RescheduleSectionProps> = ({
+  token,
+  appointment,
+  updatedAppointment,
+  loadingBooking,
+  bookingError,
+  rescheduled,
+  submitting,
+  submitError,
+  selectedDate,
+  slotOptions,
+  loadingSlots,
+  selectedSlot,
+  availabilityError,
+  isSelectedDateFullyBooked,
+  onSelectDate,
+  onSelectSlot,
+  onRescheduleSubmit,
+}) => {
   const selectedDateObject = parseLocalISODate(selectedDate);
-  const isSelectedDateFullyBooked = Boolean(
-    selectedDateObject &&
-    !loadingSlots &&
-    !availabilityError &&
-    slotOptions.length > 0 &&
-    slotOptions.every(slot => !slot.available)
-  );
 
-  // ── Fetch the existing booking on mount ─────────────────────────────────────
-  useEffect(() => {
-    if (!token) return;
-    const controller = new AbortController();
-
-    const fetchBooking = async () => {
-      try {
-        setLoadingBooking(true);
-        const appt = await getManagedBooking(token, { signal: controller.signal });
-        setAppointment(appt);
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        setBookingError(err instanceof Error ? err.message : 'Could not load booking details. Your token may be invalid or expired.');
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoadingBooking(false);
-        }
-      }
-    };
-
-    fetchBooking();
-
-    return () => controller.abort();
-  }, [token]);
-
-  // ── Fetch available slots when date changes ──────────────────────────────────
-  useEffect(() => {
-    if (!appointment || !selectedDate) {
-      return;
-    }
-    const controller = new AbortController();
-
-    const fetchSlots = async () => {
-      try {
-        setLoadingSlots(true);
-        setSelectedSlot(null);
-        setAvailabilityError(null);
-        const result = await getAvailability(appointment.barber_id, selectedDate, appointment.service_id, {
-          signal: controller.signal
-        });
-        setSlotOptions(buildSlotOptions(selectedDate, result.duration, result.slots ?? result.availableSlots));
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        setSlotOptions([]);
-        setAvailabilityError(err instanceof Error ? err.message : 'Unable to load availability for this date.');
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoadingSlots(false);
-        }
-      }
-    };
-
-    fetchSlots();
-
-    return () => controller.abort();
-  }, [appointment, selectedDate]);
-
-  // ── Submit reschedule ────────────────────────────────────────────────────────
-  const handleRescheduleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !selectedDate || !selectedSlot) return;
-
-    try {
-      setSubmitting(true);
-      setSubmitError(null);
-      const result = await rescheduleBooking({ token, appointment_date: selectedDate, start_time: selectedSlot.start });
-      setUpdatedAppointment(result.appointment);
-      setRescheduled(true);
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Rescheduling failed. The selected slot may no longer be available.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // ── No token in URL ──────────────────────────────────────────────────────────
+  // ── No token ──────────────────────────────────────────────────────────────
   if (!token) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center p-6">
@@ -138,7 +74,7 @@ const RescheduleBooking: React.FC = () => {
     );
   }
 
-  // ── Loading booking ──────────────────────────────────────────────────────────
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (loadingBooking) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-28 pb-16 px-6">
@@ -150,7 +86,7 @@ const RescheduleBooking: React.FC = () => {
     );
   }
 
-  // ── Booking fetch error ──────────────────────────────────────────────────────
+  // ── Error loading ─────────────────────────────────────────────────────────
   if (bookingError) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-28 pb-16 px-6">
@@ -166,7 +102,7 @@ const RescheduleBooking: React.FC = () => {
     );
   }
 
-  // ── Success state ────────────────────────────────────────────────────────────
+  // ── Success state ─────────────────────────────────────────────────────────
   if (rescheduled) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-28 pb-16 px-6">
@@ -204,7 +140,7 @@ const RescheduleBooking: React.FC = () => {
     );
   }
 
-  // ── Main Form ────────────────────────────────────────────────────────────────
+  // ── Main Form ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-28 pb-16 px-6 selection:bg-amber-500/30 selection:text-amber-200">
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
@@ -222,7 +158,7 @@ const RescheduleBooking: React.FC = () => {
           </p>
         </div>
 
-        {/* Current Booking Context (real data) */}
+        {/* Current Booking Context */}
         {appointment && (
           <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 text-left space-y-2 text-xs mt-5">
             <span className="font-semibold text-zinc-500 uppercase tracking-wider block">Current Booking</span>
@@ -239,7 +175,7 @@ const RescheduleBooking: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleRescheduleSubmit} className="space-y-5 mt-6">
+        <form onSubmit={onRescheduleSubmit} className="space-y-5 mt-6">
           {/* Date picker */}
           <div>
             <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Select New Date</label>
@@ -247,12 +183,7 @@ const RescheduleBooking: React.FC = () => {
               <DayPicker
                 mode="single"
                 selected={selectedDateObject}
-                onSelect={(date) => {
-                  setSelectedDate(date ? toLocalISODate(date) : '');
-                  setSelectedSlot(null);
-                  setSlotOptions([]);
-                  setAvailabilityError(null);
-                }}
+                onSelect={onSelectDate}
                 disabled={{ before: getStartOfToday() }}
                 weekStartsOn={1}
                 className="booking-day-picker"
@@ -290,35 +221,39 @@ const RescheduleBooking: React.FC = () => {
                   </div>
                 )}
                 <div className="grid grid-cols-3 gap-2 max-h-[260px] overflow-y-auto pr-1">
-                {slotOptions.map((slot, idx) => {
-                  const isSelected = selectedSlot?.start === slot.start;
-                  return (
-                    <button
-                      type="button"
-                      key={idx}
-                      disabled={!slot.available}
-                      onClick={() => {
-                        if (slot.available) setSelectedSlot(slot);
-                      }}
-                      title={slot.unavailableReason === 'past' ? 'This time has already passed' : slot.unavailableReason === 'booked' ? 'This time is already booked' : 'Available'}
-                      className={`relative min-h-12 overflow-hidden py-2 px-1 rounded-xl text-xs font-medium border text-center transition-all ${
-                        isSelected
-                          ? 'border-amber-400 bg-amber-500/10 text-amber-400'
-                          : !slot.available
-                          ? 'border-zinc-900 bg-zinc-950 text-zinc-600 cursor-not-allowed'
-                          : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700'
-                      }`}
-                    >
-                      {!slot.available && (
-                        <span className="pointer-events-none absolute left-1/2 top-1/2 h-[1px] w-[145%] -translate-x-1/2 -translate-y-1/2 rotate-[-18deg] bg-red-500/70" />
-                      )}
-                      <span className="relative block">{formatTime(slot.start)}</span>
-                      <span className="relative mt-0.5 block text-[9px] uppercase tracking-wider opacity-70">
-                        {slot.available ? 'Open' : slot.unavailableReason === 'past' ? 'Passed' : 'Booked'}
-                      </span>
-                    </button>
-                  );
-                })}
+                  {slotOptions.map((slot, idx) => {
+                    const isSelected = selectedSlot?.start === slot.start;
+                    return (
+                      <button
+                        type="button"
+                        key={idx}
+                        disabled={!slot.available}
+                        onClick={() => { if (slot.available) onSelectSlot(slot); }}
+                        title={
+                          slot.unavailableReason === 'past'
+                            ? 'This time has already passed'
+                            : slot.unavailableReason === 'booked'
+                            ? 'This time is already booked'
+                            : 'Available'
+                        }
+                        className={`relative min-h-12 overflow-hidden py-2 px-1 rounded-xl text-xs font-medium border text-center transition-all ${
+                          isSelected
+                            ? 'border-amber-400 bg-amber-500/10 text-amber-400'
+                            : !slot.available
+                            ? 'border-zinc-900 bg-zinc-950 text-zinc-600 cursor-not-allowed'
+                            : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700'
+                        }`}
+                      >
+                        {!slot.available && (
+                          <span className="pointer-events-none absolute left-1/2 top-1/2 h-[1px] w-[145%] -translate-x-1/2 -translate-y-1/2 rotate-[-18deg] bg-red-500/70" />
+                        )}
+                        <span className="relative block">{formatTime(slot.start)}</span>
+                        <span className="relative mt-0.5 block text-[9px] uppercase tracking-wider opacity-70">
+                          {slot.available ? 'Open' : slot.unavailableReason === 'past' ? 'Passed' : 'Booked'}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -356,4 +291,4 @@ const RescheduleBooking: React.FC = () => {
   );
 };
 
-export default RescheduleBooking;
+export default RescheduleSection;

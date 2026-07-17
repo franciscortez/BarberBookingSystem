@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../../hooks/useAuth';
 import { LogIn, UserPlus, ChevronLeft, Eye, EyeOff } from 'lucide-react';
 
 const API_BASE_URL = ((import.meta.env.VITE_API_URL as string | undefined)?.trim() ?? '').replace(/\/+$/, '');
@@ -11,6 +11,7 @@ const Login: React.FC = () => {
 
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -22,6 +23,7 @@ const Login: React.FC = () => {
 
   const resetFields = () => {
     setError(null);
+    setSuccess(null);
     setIdentifier('');
     setPassword('');
     setName('');
@@ -37,6 +39,7 @@ const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setLoading(true);
 
     try {
@@ -47,7 +50,10 @@ const Login: React.FC = () => {
 
       const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
         credentials: 'include',
         body: JSON.stringify(body),
       });
@@ -58,13 +64,14 @@ const Login: React.FC = () => {
         throw new Error(data.error || 'Authentication failed');
       }
 
-      login(data.user);
-
-      // Auto-redirect based on detected user role
-      if (data.user.role === 'admin' || data.user.role === 'barber') {
-        navigate('/');
+      if (isRegistering) {
+        setSuccess('Registration successful! Please sign in.');
+        setIsRegistering(false);
+        setPassword('');
+        navigate('/login');
       } else {
-        navigate('/book');
+        login(data.user);
+        navigate('/');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -156,6 +163,12 @@ const Login: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {success && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+              {success}
+            </div>
+          )}
 
           {error && (
             <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-300">

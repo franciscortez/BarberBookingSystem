@@ -27,5 +27,7 @@ export const buildCorsOptions = () => ({
         const allowedOrigins = getAllowedOrigins();
         return callback(null, allowedOrigins.includes(normalizeOrigin(origin)));
     },
-    credentials: true
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning', 'X-Requested-With'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
 });

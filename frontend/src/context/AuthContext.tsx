@@ -11,7 +11,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/auth/me`, { credentials: 'include' });
+        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          credentials: 'include',
+          headers: { 'ngrok-skip-browser-warning': 'true' },
+        });
         if (res.ok) {
           const data = await res.json();
           setUser(data.user);
@@ -34,6 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await fetch(`${API_BASE_URL}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include',
+        headers: { 'ngrok-skip-browser-warning': 'true' },
       });
     } catch {
       // ignore

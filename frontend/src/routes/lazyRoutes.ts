@@ -7,11 +7,11 @@ const lazyWithPreload = <T extends ComponentType<object>>(loader: LazyImport<T>)
   return Object.assign(Component, { preload: loader });
 };
 
-export const BookingFunnelRoute = lazyWithPreload(() => import('../pages/BookingFunnel'));
-export const SuccessPageRoute = lazyWithPreload(() => import('../pages/SuccessPage'));
-export const RescheduleBookingRoute = lazyWithPreload(() => import('../pages/RescheduleBooking'));
-export const CancelBookingRoute = lazyWithPreload(() => import('../pages/CancelBooking'));
-export const LoginRoute = lazyWithPreload(() => import('../pages/Login'));
+export const BookingFunnelRoute = lazyWithPreload(() => import('../pages/user/BookingFunnel'));
+export const SuccessPageRoute = lazyWithPreload(() => import('../pages/user/SuccessPage'));
+export const RescheduleBookingRoute = lazyWithPreload(() => import('../pages/user/RescheduleBooking'));
+export const CancelBookingRoute = lazyWithPreload(() => import('../pages/user/CancelBooking'));
+export const LoginRoute = lazyWithPreload(() => import('../pages/user/Login'));
 
 export const preloadBookingRoute = () => {
   void BookingFunnelRoute.preload();

@@ -7,7 +7,9 @@ describe('Service API Endpoints', () => {
   let token: string;
   let testBarberId: string;
   const testAdmin = {
-    username: `servicetest_admin_${Date.now()}`,
+    name: `Service Test Admin ${Date.now()}`,
+    email: `servicetest_${Date.now()}@test.com`,
+    phone: '09000000000',
     password: 'password123'
   };
 
@@ -15,10 +17,16 @@ describe('Service API Endpoints', () => {
     // 1. Create a test admin directly in DB for testing
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(testAdmin.password, salt);
-    await pool.query('INSERT INTO Admins (username, password_hash) VALUES ($1, $2)', [testAdmin.username, passwordHash]);
+    await pool.query(
+      'INSERT INTO users (name, email, phone, password_hash, role) VALUES ($1, $2, $3, $4, $5)',
+      [testAdmin.name, testAdmin.email, testAdmin.phone, passwordHash, 'admin']
+    );
     
     // 2. Login to get token
-    const loginRes = await request(app).post('/api/auth/login').send(testAdmin);
+    const loginRes = await request(app).post('/api/auth/login').send({
+      identifier: testAdmin.email,
+      password: testAdmin.password
+    });
     token = loginRes.body.token;
 
     // 3. Create a test barber to associate services with
@@ -31,8 +39,10 @@ describe('Service API Endpoints', () => {
 
   afterAll(async () => {
     // Cleanup test data
-    await pool.query('DELETE FROM Barbers WHERE id = $1', [testBarberId]);
-    await pool.query('DELETE FROM Admins WHERE username = $1', [testAdmin.username]);
+    if (testBarberId) {
+      await pool.query('DELETE FROM barbers WHERE id = $1', [testBarberId]);
+    }
+    await pool.query('DELETE FROM users WHERE email = $1', [testAdmin.email]);
   });
 
   // Test Listing Services (Public)

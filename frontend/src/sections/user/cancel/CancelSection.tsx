@@ -1,67 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { AlertTriangle, ChevronLeft, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
-import { getManagedBooking, cancelBooking } from '../services/api';
-import type { Appointment } from '../types';
-import { formatDate as formatDateBase, formatOptionalPrice, formatTime } from '../utils/booking';
+import type { Appointment } from '../../../types';
+import { formatDate as formatDateBase, formatOptionalPrice, formatTime } from '../../../utils/booking';
 
 const formatDate = (dateStr: string): string => formatDateBase(dateStr, true);
 
-const CancelBooking: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+interface CancelSectionProps {
+  token: string | null;
+  appointment: Appointment | null;
+  loadingBooking: boolean;
+  bookingError: string | null;
+  cancelled: boolean;
+  submitting: boolean;
+  submitError: string | null;
+  onCancelSubmit: (e: React.FormEvent) => void;
+}
 
-  const [appointment, setAppointment] = useState<Appointment | null>(null);
-  const [loadingBooking, setLoadingBooking] = useState<boolean>(true);
-  const [bookingError, setBookingError] = useState<string | null>(null);
-
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [cancelled, setCancelled] = useState<boolean>(false);
-
-  // ── Fetch the existing booking on mount ─────────────────────────────────────
-  useEffect(() => {
-    if (!token) return;
-    const controller = new AbortController();
-
-    const fetchBooking = async () => {
-      try {
-        setLoadingBooking(true);
-        const appt = await getManagedBooking(token, { signal: controller.signal });
-        setAppointment(appt);
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        setBookingError(err instanceof Error ? err.message : 'Could not load booking details. Your token may be invalid or expired.');
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoadingBooking(false);
-        }
-      }
-    };
-
-    fetchBooking();
-
-    return () => controller.abort();
-  }, [token]);
-
-  // ── Submit cancellation ──────────────────────────────────────────────────────
-  const handleCancelSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token) return;
-
-    try {
-      setSubmitting(true);
-      setSubmitError(null);
-      await cancelBooking(token);
-      setCancelled(true);
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Cancellation failed. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // ── No token in URL ──────────────────────────────────────────────────────────
+const CancelSection: React.FC<CancelSectionProps> = ({
+  token,
+  appointment,
+  loadingBooking,
+  bookingError,
+  cancelled,
+  submitting,
+  submitError,
+  onCancelSubmit,
+}) => {
+  // ── No token ──────────────────────────────────────────────────────────────
   if (!token) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center p-6">
@@ -79,7 +45,7 @@ const CancelBooking: React.FC = () => {
     );
   }
 
-  // ── Loading booking ──────────────────────────────────────────────────────────
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (loadingBooking) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-28 pb-16 px-6">
@@ -91,7 +57,7 @@ const CancelBooking: React.FC = () => {
     );
   }
 
-  // ── Booking fetch error ──────────────────────────────────────────────────────
+  // ── Error loading ─────────────────────────────────────────────────────────
   if (bookingError) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-28 pb-16 px-6">
@@ -107,7 +73,7 @@ const CancelBooking: React.FC = () => {
     );
   }
 
-  // ── Cancelled success ────────────────────────────────────────────────────────
+  // ── Cancelled success ─────────────────────────────────────────────────────
   if (cancelled) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-28 pb-16 px-6">
@@ -133,7 +99,7 @@ const CancelBooking: React.FC = () => {
     );
   }
 
-  // ── Main Cancel Form ─────────────────────────────────────────────────────────
+  // ── Main Cancel Form ──────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-28 pb-16 px-6 selection:bg-amber-500/30 selection:text-amber-200">
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-red-500/5 rounded-full blur-[120px] pointer-events-none" />
@@ -151,7 +117,7 @@ const CancelBooking: React.FC = () => {
           </p>
         </div>
 
-        {/* Current Booking Details (real data) */}
+        {/* Current Booking Details */}
         {appointment && (
           <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 text-left space-y-2 text-xs mt-5">
             <span className="font-semibold text-zinc-500 uppercase tracking-wider block">Booking to Cancel</span>
@@ -189,7 +155,7 @@ const CancelBooking: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleCancelSubmit} className="space-y-4 pt-6">
+        <form onSubmit={onCancelSubmit} className="space-y-4 pt-6">
           <button
             type="submit"
             disabled={submitting}
@@ -214,4 +180,4 @@ const CancelBooking: React.FC = () => {
   );
 };
 
-export default CancelBooking;
+export default CancelSection;

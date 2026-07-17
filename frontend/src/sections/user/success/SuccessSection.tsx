@@ -1,63 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { CheckCircle2, Loader2, Mail, MapPin, ArrowRight, AlertTriangle } from 'lucide-react';
-import { getManagedBooking } from '../services/api';
-import type { Appointment } from '../types';
-import { formatDate as formatDateBase, formatOptionalPrice, formatTime } from '../utils/booking';
+import type { Appointment } from '../../../types';
+import { formatDate as formatDateBase, formatOptionalPrice, formatTime } from '../../../utils/booking';
 
 const formatDate = (dateStr: string): string => formatDateBase(dateStr, true);
 
-const POLL_INTERVAL_MS = 3000;
-const MAX_POLLS = 40; // ~2 minutes
+interface SuccessSectionProps {
+  noToken: boolean;
+  timedOut: boolean;
+  verified: boolean;
+  appointment: Appointment | null;
+}
 
-const SuccessPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const urlToken = searchParams.get('token');
-  const [pendingBookingToken] = useState<string | null>(() => urlToken || sessionStorage.getItem('pendingBookingToken'));
-  const [appointment, setAppointment] = useState<Appointment | null>(null);
-  const [verified, setVerified] = useState<boolean>(false);
-  const [timedOut, setTimedOut] = useState<boolean>(false);
-  const noToken = !pendingBookingToken;
-
-  const pollCount = useRef(0);
-  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    const token = pendingBookingToken;
-
-    if (!token) {
-      return;
-    }
-
-    const poll = async () => {
-      pollCount.current += 1;
-
-      try {
-        const appt = await getManagedBooking(token);
-        // getManagedBooking only succeeds when appointment is 'confirmed'
-        setAppointment(appt);
-        setVerified(true);
-        sessionStorage.removeItem('pendingBookingToken');
-        if (pollTimer.current) clearInterval(pollTimer.current);
-      } catch {
-        // Not confirmed yet — keep polling
-        if (pollCount.current >= MAX_POLLS) {
-          if (pollTimer.current) clearInterval(pollTimer.current);
-          setTimedOut(true);
-        }
-      }
-    };
-
-    // Kick off immediately, then repeat
-    poll();
-    pollTimer.current = setInterval(poll, POLL_INTERVAL_MS);
-
-    return () => {
-      if (pollTimer.current) clearInterval(pollTimer.current);
-    };
-  }, [pendingBookingToken]);
-
-  // ── No token in sessionStorage ──────────────────────────────────────────────
+const SuccessSection: React.FC<SuccessSectionProps> = ({ noToken, timedOut, verified, appointment }) => {
+  // ── No token ──────────────────────────────────────────────────────────────
   if (noToken) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-28 pb-16 px-6">
@@ -80,7 +37,7 @@ const SuccessPage: React.FC = () => {
     );
   }
 
-  // ── Polling timed out ───────────────────────────────────────────────────────
+  // ── Timed out ─────────────────────────────────────────────────────────────
   if (timedOut) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-28 pb-16 px-6">
@@ -105,7 +62,7 @@ const SuccessPage: React.FC = () => {
     );
   }
 
-  // ── Verifying (polling in progress) ────────────────────────────────────────
+  // ── Verifying (polling) ───────────────────────────────────────────────────
   if (!verified) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-28 pb-16 px-6">
@@ -132,13 +89,12 @@ const SuccessPage: React.FC = () => {
     );
   }
 
-  // ── Confirmed ───────────────────────────────────────────────────────────────
+  // ── Confirmed ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-28 pb-16 px-6 selection:bg-amber-500/30 selection:text-amber-200">
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="max-w-xl w-full rounded-2xl border border-zinc-800 bg-zinc-900/30 backdrop-blur-md p-8 md:p-10 text-center relative overflow-hidden">
-        
         {/* Success Checkmark */}
         <div className="inline-flex p-4 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 mx-auto shadow-[0_0_20px_rgba(245,158,11,0.15)] mb-6">
           <CheckCircle2 className="w-12 h-12" />
@@ -212,4 +168,4 @@ const SuccessPage: React.FC = () => {
   );
 };
 
-export default SuccessPage;
+export default SuccessSection;
