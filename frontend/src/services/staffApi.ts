@@ -14,11 +14,11 @@ export async function staffRequest<T>(
     authHeaders["Authorization"] = `Bearer ${token}`;
   }
 
-  const requestHeaders = {
+  const requestHeaders: Record<string, string> = {
     "Content-Type": "application/json",
     "ngrok-skip-browser-warning": "true",
     ...authHeaders,
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
   };
 
   let response = await fetch(`${BASE}${path}`, {
