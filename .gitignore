@@ -24,7 +24,6 @@ backend/dist/
 frontend/dist/
 
 # Agent and Codex
-.agents/
 .codex/
 
 
