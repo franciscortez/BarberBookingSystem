@@ -1,0 +1,1 @@
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_status_check" CHECK ("appointments"."status" IN ('pending','confirmed','checked_in','completed','no_show','cancelled'));

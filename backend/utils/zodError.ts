@@ -1,4 +1,4 @@
-import { ZodError } from 'zod';
+import { ZodError } from "zod";
 
 /**
  * Format a ZodError into a structured API error response body.
@@ -6,12 +6,12 @@ import { ZodError } from 'zod';
  * can assert on `res.body.error` without unpacking `issues`.
  */
 export const formatZodError = (err: ZodError) => {
-    const issues = err.issues.map(issue => ({
-        field: issue.path.join('.'),
-        message: issue.message
-    }));
-    return {
-        error: issues[0]?.message ?? 'Validation failed',
-        issues
-    };
+  const issues = err.issues.map((issue) => ({
+    field: issue.path.join("."),
+    message: issue.message,
+  }));
+  return {
+    error: issues[0]?.message ?? "Validation failed",
+    issues,
+  };
 };

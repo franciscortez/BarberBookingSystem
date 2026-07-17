@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 export const BarberSkeleton: React.FC = () => (
   <div className="p-4 rounded-xl border border-zinc-900 bg-zinc-900/20 animate-pulse flex items-center gap-3">

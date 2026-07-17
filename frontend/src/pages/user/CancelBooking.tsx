@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { getManagedBooking, cancelBooking } from '../../services/api';
-import type { Appointment } from '../../types';
-import CancelSection from '../../sections/user/cancel/CancelSection';
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { getManagedBooking, cancelBooking } from "../../services/api";
+import type { Appointment } from "../../types";
+import CancelSection from "../../sections/user/cancel/CancelSection";
 
 const CancelBooking: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+  const token = searchParams.get("token");
 
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [loadingBooking, setLoadingBooking] = useState<boolean>(true);
@@ -23,11 +23,17 @@ const CancelBooking: React.FC = () => {
     const fetchBooking = async () => {
       try {
         setLoadingBooking(true);
-        const appt = await getManagedBooking(token, { signal: controller.signal });
+        const appt = await getManagedBooking(token, {
+          signal: controller.signal,
+        });
         setAppointment(appt);
       } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        setBookingError(err instanceof Error ? err.message : 'Could not load booking details. Your token may be invalid or expired.');
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setBookingError(
+          err instanceof Error
+            ? err.message
+            : "Could not load booking details. Your token may be invalid or expired.",
+        );
       } finally {
         if (!controller.signal.aborted) setLoadingBooking(false);
       }
@@ -46,7 +52,11 @@ const CancelBooking: React.FC = () => {
       await cancelBooking(token);
       setCancelled(true);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Cancellation failed. Please try again.');
+      setSubmitError(
+        err instanceof Error
+          ? err.message
+          : "Cancellation failed. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }

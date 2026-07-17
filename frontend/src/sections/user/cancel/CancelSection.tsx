@@ -1,8 +1,18 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, ChevronLeft, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
-import type { Appointment } from '../../../types';
-import { formatDate as formatDateBase, formatOptionalPrice, formatTime } from '../../../utils/booking';
+import React from "react";
+import { Link } from "react-router-dom";
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ArrowRight,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
+import type { Appointment } from "../../../types";
+import {
+  formatDate as formatDateBase,
+  formatOptionalPrice,
+  formatTime,
+} from "../../../utils/booking";
 
 const formatDate = (dateStr: string): string => formatDateBase(dateStr, true);
 
@@ -33,11 +43,17 @@ const CancelSection: React.FC<CancelSectionProps> = ({
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center p-6">
         <div className="max-w-md w-full rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center space-y-4">
           <AlertTriangle className="w-12 h-12 text-red-400 mx-auto" />
-          <h2 className="text-xl font-bold text-white">Invalid Management Token</h2>
+          <h2 className="text-xl font-bold text-white">
+            Invalid Management Token
+          </h2>
           <p className="text-sm text-zinc-400 leading-relaxed">
-            No secure token was detected. Please use the cancellation link from your booking confirmation email.
+            No secure token was detected. Please use the cancellation link from
+            your booking confirmation email.
           </p>
-          <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+          >
             <ChevronLeft className="w-4 h-4" /> Return to Home
           </Link>
         </div>
@@ -51,7 +67,9 @@ const CancelSection: React.FC<CancelSectionProps> = ({
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-28 pb-16 px-6">
         <div className="max-w-lg w-full rounded-2xl border border-zinc-800 bg-zinc-900/30 backdrop-blur-md p-10 text-center space-y-5">
           <Loader2 className="w-10 h-10 text-amber-400 animate-spin mx-auto" />
-          <p className="text-zinc-400 text-sm">Loading your booking details...</p>
+          <p className="text-zinc-400 text-sm">
+            Loading your booking details...
+          </p>
         </div>
       </div>
     );
@@ -64,8 +82,13 @@ const CancelSection: React.FC<CancelSectionProps> = ({
         <div className="max-w-md w-full rounded-2xl border border-red-500/20 bg-red-500/5 p-8 text-center space-y-4">
           <AlertTriangle className="w-12 h-12 text-red-400 mx-auto" />
           <h2 className="text-xl font-bold text-white">Booking Not Found</h2>
-          <p className="text-sm text-zinc-400 leading-relaxed">{bookingError}</p>
-          <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors">
+          <p className="text-sm text-zinc-400 leading-relaxed">
+            {bookingError}
+          </p>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+          >
             <ChevronLeft className="w-4 h-4" /> Return to Home
           </Link>
         </div>
@@ -82,11 +105,17 @@ const CancelSection: React.FC<CancelSectionProps> = ({
           <div className="inline-flex p-4 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 mx-auto shadow-[0_0_20px_rgba(239,68,68,0.15)]">
             <CheckCircle2 className="w-12 h-12" />
           </div>
-          <h2 className="text-2xl font-bold text-white">Appointment Cancelled</h2>
+          <h2 className="text-2xl font-bold text-white">
+            Appointment Cancelled
+          </h2>
           <p className="text-zinc-400 text-sm max-w-sm mx-auto leading-relaxed">
-            Your booking has been cancelled. As per our policy, the downpayment of{' '}
-            <strong className="text-red-400">{formatOptionalPrice(appointment?.downpayment_amount)}</strong> has been forfeited.
-            A cancellation notice has been sent to your email.
+            Your booking has been cancelled. As per our policy, the downpayment
+            of{" "}
+            <strong className="text-red-400">
+              {formatOptionalPrice(appointment?.downpayment_amount)}
+            </strong>{" "}
+            has been forfeited. A cancellation notice has been sent to your
+            email.
           </p>
           <Link
             to="/"
@@ -101,16 +130,20 @@ const CancelSection: React.FC<CancelSectionProps> = ({
 
   // ── Main Cancel Form ──────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-28 pb-16 px-6 selection:bg-amber-500/30 selection:text-amber-200">
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-red-500/5 rounded-full blur-[120px] pointer-events-none" />
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex items-center justify-center pt-24 sm:pt-28 pb-16 px-4 sm:px-6 selection:bg-amber-500/30 selection:text-amber-200 relative overflow-hidden">
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-full max-w-[500px] h-[500px] bg-red-500/5 rounded-full blur-[120px] pointer-events-none" />
 
-      <div className="max-w-lg w-full rounded-2xl border border-zinc-800 bg-zinc-900/30 backdrop-blur-md p-8 relative overflow-hidden">
+      <div className="max-w-lg w-full rounded-2xl border border-zinc-800 bg-zinc-900/30 backdrop-blur-md p-5 sm:p-8 relative overflow-hidden">
         <div>
-          <Link to="/" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-1 mb-4">
+          <Link
+            to="/"
+            className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-1 mb-4"
+          >
             <ChevronLeft className="w-3.5 h-3.5" /> Back to Home
           </Link>
           <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            <AlertTriangle className="w-6 h-6 text-red-400" /> Cancel Appointment
+            <AlertTriangle className="w-6 h-6 text-red-400" /> Cancel
+            Appointment
           </h2>
           <p className="text-zinc-400 text-sm mt-1 leading-relaxed">
             You are about to permanently cancel your confirmed grooming session.
@@ -120,18 +153,30 @@ const CancelSection: React.FC<CancelSectionProps> = ({
         {/* Current Booking Details */}
         {appointment && (
           <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 text-left space-y-2 text-xs mt-5">
-            <span className="font-semibold text-zinc-500 uppercase tracking-wider block">Booking to Cancel</span>
+            <span className="font-semibold text-zinc-500 uppercase tracking-wider block">
+              Booking to Cancel
+            </span>
             <div className="grid grid-cols-2 gap-y-1.5 text-zinc-300">
               <span className="text-zinc-500">Stylist:</span>
-              <span className="text-white font-medium">{appointment.barber_name ?? '—'}</span>
+              <span className="text-white font-medium">
+                {appointment.barber_name ?? "—"}
+              </span>
               <span className="text-zinc-500">Service:</span>
-              <span className="text-white font-medium">{appointment.service_name ?? '—'}</span>
+              <span className="text-white font-medium">
+                {appointment.service_name ?? "—"}
+              </span>
               <span className="text-zinc-500">Date:</span>
-              <span className="text-red-400 font-medium">{formatDate(appointment.appointment_date)}</span>
+              <span className="text-red-400 font-medium">
+                {formatDate(appointment.appointment_date)}
+              </span>
               <span className="text-zinc-500">Time:</span>
-              <span className="text-red-400 font-medium">{formatTime(appointment.start_time)}</span>
+              <span className="text-red-400 font-medium">
+                {formatTime(appointment.start_time)}
+              </span>
               <span className="text-zinc-500">Client:</span>
-              <span className="text-white font-medium">{appointment.customer_name}</span>
+              <span className="text-white font-medium">
+                {appointment.customer_name}
+              </span>
             </div>
           </div>
         )}
@@ -140,11 +185,16 @@ const CancelSection: React.FC<CancelSectionProps> = ({
         <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-left flex gap-3.5 items-start mt-5">
           <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
           <div>
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider">Non-Refundable Downpayment Policy</h4>
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+              Non-Refundable Downpayment Policy
+            </h4>
             <p className="text-[11px] text-zinc-400 leading-relaxed mt-1">
-              Your downpayment of{' '}
-              <strong className="text-red-400">{formatOptionalPrice(appointment?.downpayment_amount)}</strong> will be{' '}
-              <strong>forfeited</strong> upon cancellation and will not be refunded to your card or e-wallet.
+              Your downpayment of{" "}
+              <strong className="text-red-400">
+                {formatOptionalPrice(appointment?.downpayment_amount)}
+              </strong>{" "}
+              will be <strong>forfeited</strong> upon cancellation and will not
+              be refunded to your card or e-wallet.
             </p>
           </div>
         </div>
@@ -162,7 +212,10 @@ const CancelSection: React.FC<CancelSectionProps> = ({
             className="w-full py-3.5 rounded-xl font-semibold text-white bg-red-600 hover:bg-red-500 hover:shadow-[0_0_15px_rgba(239,68,68,0.25)] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Cancelling Reservation...</>
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Cancelling
+                Reservation...
+              </>
             ) : (
               <>Yes, Cancel Appointment</>
             )}

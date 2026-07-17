@@ -1,68 +1,94 @@
-import transporter = require('../config/email');
-import dotenv from 'dotenv';
+import transporter = require("../config/email");
+import dotenv from "dotenv";
 
 dotenv.config();
 
 const buildFrontendUrl = (path: string): string => {
-    const baseUrl = (process.env.FRONTEND_URL || '').trim().replace(/\/+$/, '');
-    return `${baseUrl}${path}`;
+  const baseUrl = (process.env.FRONTEND_URL || "").trim().replace(/\/+$/, "");
+  return `${baseUrl}${path}`;
 };
 
 const escapeHtml = (value: string | number | null | undefined): string => {
-    return String(value ?? '').replace(/[&<>"']/g, (char) => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-    }[char] || char));
+  return String(value ?? "").replace(
+    /[&<>"']/g,
+    (char) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[char] || char,
+  );
+};
+
+export const sendBarberInvitationEmail = async (
+  email: string,
+  name: string,
+  token: string,
+): Promise<void> => {
+  const setupUrl = buildFrontendUrl(
+    `/accept-barber-invitation?token=${encodeURIComponent(token)}`,
+  );
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: "You're invited to Gentlemen's Quarters",
+    html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:32px;color:#27272a"><h1 style="font-size:22px">Barber account invitation</h1><p>Hello ${escapeHtml(name)},</p><p>An administrator invited you to manage your schedule and appointments.</p><p><a href="${setupUrl}" style="display:inline-block;background:#f59e0b;color:#18181b;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:700">Set up account</a></p><p style="color:#71717a;font-size:13px">This link expires in 48 hours and works once.</p></div>`,
+  });
 };
 
 interface ManagementUrls {
-    rescheduleUrl: string;
-    cancelUrl: string;
+  rescheduleUrl: string;
+  cancelUrl: string;
 }
 
 const buildManagementUrls = (managementToken: string): ManagementUrls => {
-    const encodedToken = encodeURIComponent(managementToken);
+  const encodedToken = encodeURIComponent(managementToken);
 
-    return {
-        rescheduleUrl: buildFrontendUrl(`/reschedule-booking?token=${encodedToken}`),
-        cancelUrl: buildFrontendUrl(`/cancel-booking?token=${encodedToken}`)
-    };
+  return {
+    rescheduleUrl: buildFrontendUrl(
+      `/reschedule-booking?token=${encodedToken}`,
+    ),
+    cancelUrl: buildFrontendUrl(`/cancel-booking?token=${encodedToken}`),
+  };
 };
 
-import { EmailAppointmentDetails } from '../types';
+import { EmailAppointmentDetails } from "../types";
 
 /**
  * Send booking confirmation email
  * @param {EmailAppointmentDetails} appointment - Full appointment details
  */
-export const sendConfirmationEmail = async (appointment: EmailAppointmentDetails): Promise<void> => {
-    const {
-        customer_email,
-        customer_name,
-        barber_name,
-        service_name,
-        appointment_date,
-        start_time,
-        payment_reference_number,
-        management_token
-    } = appointment;
+export const sendConfirmationEmail = async (
+  appointment: EmailAppointmentDetails,
+): Promise<void> => {
+  const {
+    customer_email,
+    customer_name,
+    barber_name,
+    service_name,
+    appointment_date,
+    start_time,
+    payment_reference_number,
+    management_token,
+  } = appointment;
 
-    const { rescheduleUrl, cancelUrl } = buildManagementUrls(management_token);
-    const safeCustomerName = escapeHtml(customer_name);
-    const safeBarberName = escapeHtml(barber_name);
-    const safeServiceName = escapeHtml(service_name);
-    const safeAppointmentDate = escapeHtml(appointment_date);
-    const safeStartTime = escapeHtml(start_time);
-    const safePaymentReferenceNumber = payment_reference_number ? escapeHtml(payment_reference_number) : 'N/A';
+  const { rescheduleUrl, cancelUrl } = buildManagementUrls(management_token);
+  const safeCustomerName = escapeHtml(customer_name);
+  const safeBarberName = escapeHtml(barber_name);
+  const safeServiceName = escapeHtml(service_name);
+  const safeAppointmentDate = escapeHtml(appointment_date);
+  const safeStartTime = escapeHtml(start_time);
+  const safePaymentReferenceNumber = payment_reference_number
+    ? escapeHtml(payment_reference_number)
+    : "N/A";
 
-    const mailOptions = {
-        from: process.env.EMAIL_FROM,
-        to: customer_email,
-        subject: 'Booking Confirmed - Gentlemen\'s Quarters',
-        html: `
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: customer_email,
+    subject: "Booking Confirmed - Gentlemen's Quarters",
+    html: `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 40px 20px; background-color: #09090b; color: #f4f4f5; border-radius: 12px; border: 1px solid #27272a;">
                 <div style="text-align: center; margin-bottom: 30px;">
                     <h1 style="color: #fbbf24; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Gentlemen's Quarters</h1>
@@ -90,43 +116,45 @@ export const sendConfirmationEmail = async (appointment: EmailAppointmentDetails
                 <hr style="border: 0; border-top: 1px solid #27272a; margin: 30px 0;">
                 <p style="font-size: 12px; color: #71717a; text-align: center;">This is an automated message from Gentlemen's Quarters. Please do not reply directly to this email.</p>
             </div>
-        `
-    };
+        `,
+  };
 
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Confirmation email sent to: ${customer_email}`);
-    } catch (error) {
-        console.error('Error sending confirmation email:', error);
-    }
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Confirmation email sent to: ${customer_email}`);
+  } catch (error) {
+    console.error("Error sending confirmation email:", error);
+  }
 };
 
 /**
  * Send booking reschedule confirmation email
  * @param {EmailAppointmentDetails} appointment - Full appointment details
  */
-export const sendRescheduleConfirmationEmail = async (appointment: EmailAppointmentDetails): Promise<void> => {
-    const {
-        customer_email,
-        customer_name,
-        barber_name,
-        service_name,
-        appointment_date,
-        start_time,
-        management_token
-    } = appointment;
-    const { rescheduleUrl, cancelUrl } = buildManagementUrls(management_token);
-    const safeCustomerName = escapeHtml(customer_name);
-    const safeBarberName = escapeHtml(barber_name);
-    const safeServiceName = escapeHtml(service_name);
-    const safeAppointmentDate = escapeHtml(appointment_date);
-    const safeStartTime = escapeHtml(start_time);
+export const sendRescheduleConfirmationEmail = async (
+  appointment: EmailAppointmentDetails,
+): Promise<void> => {
+  const {
+    customer_email,
+    customer_name,
+    barber_name,
+    service_name,
+    appointment_date,
+    start_time,
+    management_token,
+  } = appointment;
+  const { rescheduleUrl, cancelUrl } = buildManagementUrls(management_token);
+  const safeCustomerName = escapeHtml(customer_name);
+  const safeBarberName = escapeHtml(barber_name);
+  const safeServiceName = escapeHtml(service_name);
+  const safeAppointmentDate = escapeHtml(appointment_date);
+  const safeStartTime = escapeHtml(start_time);
 
-    const mailOptions = {
-        from: process.env.EMAIL_FROM,
-        to: customer_email,
-        subject: 'Booking Rescheduled - Gentlemen\'s Quarters',
-        html: `
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: customer_email,
+    subject: "Booking Rescheduled - Gentlemen's Quarters",
+    html: `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 40px 20px; background-color: #09090b; color: #f4f4f5; border-radius: 12px; border: 1px solid #27272a;">
                 <div style="text-align: center; margin-bottom: 30px;">
                     <h1 style="color: #fbbf24; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Gentlemen's Quarters</h1>
@@ -153,41 +181,43 @@ export const sendRescheduleConfirmationEmail = async (appointment: EmailAppointm
                 <hr style="border: 0; border-top: 1px solid #27272a; margin: 30px 0;">
                 <p style="font-size: 12px; color: #71717a; text-align: center;">This is an automated message from Gentlemen's Quarters. Please do not reply directly to this email.</p>
             </div>
-        `
-    };
+        `,
+  };
 
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Reschedule confirmation email sent to: ${customer_email}`);
-    } catch (error) {
-        console.error('Error sending reschedule confirmation email:', error);
-    }
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Reschedule confirmation email sent to: ${customer_email}`);
+  } catch (error) {
+    console.error("Error sending reschedule confirmation email:", error);
+  }
 };
 
 /**
  * Send booking cancellation confirmation email
  * @param {EmailAppointmentDetails} appointment - Full appointment details
  */
-export const sendCancellationConfirmationEmail = async (appointment: EmailAppointmentDetails): Promise<void> => {
-    const {
-        customer_email,
-        customer_name,
-        barber_name,
-        service_name,
-        appointment_date,
-        start_time
-    } = appointment;
-    const safeCustomerName = escapeHtml(customer_name);
-    const safeBarberName = escapeHtml(barber_name);
-    const safeServiceName = escapeHtml(service_name);
-    const safeAppointmentDate = escapeHtml(appointment_date);
-    const safeStartTime = escapeHtml(start_time);
+export const sendCancellationConfirmationEmail = async (
+  appointment: EmailAppointmentDetails,
+): Promise<void> => {
+  const {
+    customer_email,
+    customer_name,
+    barber_name,
+    service_name,
+    appointment_date,
+    start_time,
+  } = appointment;
+  const safeCustomerName = escapeHtml(customer_name);
+  const safeBarberName = escapeHtml(barber_name);
+  const safeServiceName = escapeHtml(service_name);
+  const safeAppointmentDate = escapeHtml(appointment_date);
+  const safeStartTime = escapeHtml(start_time);
 
-    const mailOptions = {
-        from: process.env.EMAIL_FROM,
-        to: customer_email,
-        subject: 'Booking Cancelled - Gentlemen\'s Quarters',
-        html: `
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: customer_email,
+    subject: "Booking Cancelled - Gentlemen's Quarters",
+    html: `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 40px 20px; background-color: #09090b; color: #f4f4f5; border-radius: 12px; border: 1px solid #27272a;">
                 <div style="text-align: center; margin-bottom: 30px;">
                     <h1 style="color: #fbbf24; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Gentlemen's Quarters</h1>
@@ -212,13 +242,13 @@ export const sendCancellationConfirmationEmail = async (appointment: EmailAppoin
                 <hr style="border: 0; border-top: 1px solid #27272a; margin: 30px 0;">
                 <p style="font-size: 12px; color: #71717a; text-align: center;">This is an automated message from Gentlemen's Quarters. Please do not reply directly to this email.</p>
             </div>
-        `
-    };
+        `,
+  };
 
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Cancellation confirmation email sent to: ${customer_email}`);
-    } catch (error) {
-        console.error('Error sending cancellation confirmation email:', error);
-    }
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Cancellation confirmation email sent to: ${customer_email}`);
+  } catch (error) {
+    console.error("Error sending cancellation confirmation email:", error);
+  }
 };

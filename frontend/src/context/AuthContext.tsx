@@ -1,9 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { AuthContext, type AuthUser } from './AuthContextObject';
+import React, { useState, useEffect, useCallback } from "react";
+import { AuthContext, type AuthUser } from "./AuthContextObject";
 
-const API_BASE_URL = ((import.meta.env.VITE_API_URL as string | undefined)?.trim() ?? '').replace(/\/+$/, '');
+const API_BASE_URL = (
+  (import.meta.env.VITE_API_URL as string | undefined)?.trim() ?? ""
+).replace(/\/+$/, "");
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -12,8 +16,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const checkSession = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
-          credentials: 'include',
-          headers: { 'ngrok-skip-browser-warning': 'true' },
+          credentials: "include",
+          headers: { "ngrok-skip-browser-warning": "true" },
         });
         if (res.ok) {
           const data = await res.json();
@@ -35,9 +39,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async () => {
     try {
       await fetch(`${API_BASE_URL}/api/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'ngrok-skip-browser-warning': 'true' },
+        method: "POST",
+        credentials: "include",
+        headers: { "ngrok-skip-browser-warning": "true" },
       });
     } catch {
       // ignore
