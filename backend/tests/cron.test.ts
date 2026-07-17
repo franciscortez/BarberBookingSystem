@@ -1,6 +1,5 @@
 import request from "supertest";
 import app = require("../index");
-import pool = require("../config/database");
 
 describe("Cron Cleanup API Endpoint", () => {
   const originalNodeEnv = process.env.NODE_ENV;
