@@ -3,17 +3,15 @@ import { AppError } from "../utils/AppError";
 import { Barber } from "../types";
 import {
   CreateBarberSchema,
-  CreateBarberInput,
   UpdateBarberSchema,
+} from "../validation/barber.validation";
+import type {
+  CreateBarberInput,
   UpdateBarberInput,
 } from "../validation/barber.validation";
 
-export {
-  CreateBarberSchema,
-  CreateBarberInput,
-  UpdateBarberSchema,
-  UpdateBarberInput,
-};
+export { CreateBarberSchema, UpdateBarberSchema };
+export type { CreateBarberInput, UpdateBarberInput };
 
 export const listBarbers = async (): Promise<Barber[]> => {
   return BarberModel.getAllBarber();

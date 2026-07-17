@@ -8,17 +8,15 @@ import {
 } from "../types";
 import {
   CreateServiceSchema,
-  CreateServiceInput,
   UpdateServiceSchema,
+} from "../validation/service.validation";
+import type {
+  CreateServiceInput,
   UpdateServiceInput,
 } from "../validation/service.validation";
 
-export {
-  CreateServiceSchema,
-  CreateServiceInput,
-  UpdateServiceSchema,
-  UpdateServiceInput,
-};
+export { CreateServiceSchema, UpdateServiceSchema };
+export type { CreateServiceInput, UpdateServiceInput };
 
 export const listServices = async (
   barberId?: string,

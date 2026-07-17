@@ -1,10 +1,9 @@
 import * as AvailabilityModel from "../model/availability.model";
-import {
-  AvailabilityQuerySchema,
-  AvailabilityQueryInput,
-} from "../validation/availability.validation";
+import { AvailabilityQuerySchema } from "../validation/availability.validation";
+import type { AvailabilityQueryInput } from "../validation/availability.validation";
 
-export { AvailabilityQuerySchema, AvailabilityQueryInput };
+export { AvailabilityQuerySchema };
+export type { AvailabilityQueryInput };
 
 export interface Slot {
   start: string;

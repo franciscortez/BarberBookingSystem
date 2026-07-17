@@ -4,15 +4,18 @@ import crypto from "crypto";
 import * as UserModel from "../model/user.model";
 import * as SessionModel from "../model/session.model";
 import { AppError } from "../utils/AppError";
-import { LoginSchema, LoginInput } from "../validation/auth.validation";
+import { LoginSchema } from "../validation/auth.validation";
+import type { LoginInput } from "../validation/auth.validation";
 import {
   RegisterSchema,
-  RegisterInput,
   UserLoginSchema,
-  UserLoginInput,
   BarberLoginSchema,
-  BarberLoginInput,
   UnifiedLoginSchema,
+} from "../validation/user.validation";
+import type {
+  RegisterInput,
+  UserLoginInput,
+  BarberLoginInput,
   UnifiedLoginInput,
 } from "../validation/user.validation";
 
@@ -22,6 +25,8 @@ export {
   UserLoginSchema,
   BarberLoginSchema,
   UnifiedLoginSchema,
+};
+export type {
   LoginInput,
   RegisterInput,
   UserLoginInput,

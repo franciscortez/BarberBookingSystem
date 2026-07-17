@@ -11,22 +11,18 @@ import { AppError } from "../utils/AppError";
 import { Appointment, AppointmentDetails } from "../types";
 import {
   CreateBookingSchema,
-  CreateBookingInput,
   RescheduleBookingSchema,
-  RescheduleBookingInput,
   CancelBookingSchema,
-  CancelBookingInput,
   buildEndTime,
 } from "../validation/appointment.validation";
-
-export {
-  CreateBookingSchema,
+import type {
   CreateBookingInput,
-  RescheduleBookingSchema,
   RescheduleBookingInput,
-  CancelBookingSchema,
   CancelBookingInput,
-};
+} from "../validation/appointment.validation";
+
+export { CreateBookingSchema, RescheduleBookingSchema, CancelBookingSchema };
+export type { CreateBookingInput, RescheduleBookingInput, CancelBookingInput };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
