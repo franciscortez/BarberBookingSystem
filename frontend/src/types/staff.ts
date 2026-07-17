@@ -70,3 +70,12 @@ export interface StaffAvailability {
   hours: WorkingHour[];
   blocks: AvailabilityBlock[];
 }
+
+export interface BarberInvitation {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  status: string;
+  created_at: string;
+}

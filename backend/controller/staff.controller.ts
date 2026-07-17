@@ -211,6 +211,19 @@ export const setBarberActive = async (
     next(e);
   }
 };
+export const deleteBarber = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    await StaffService.deleteBarber(req.params.id as string);
+    res.status(204).end();
+  } catch (e) {
+    next(e);
+  }
+};
+
 export const payments = async (
   _req: Request,
   res: Response,
@@ -442,11 +455,9 @@ export const acceptInvite = async (
 ) => {
   try {
     const data = AcceptInvitationSchema.parse(req.body);
-    res
-      .status(201)
-      .json({
-        user: await StaffService.acceptInvitation(data.token, data.password),
-      });
+    res.status(201).json({
+      user: await StaffService.acceptInvitation(data.token, data.password),
+    });
   } catch (e) {
     next(e);
   }

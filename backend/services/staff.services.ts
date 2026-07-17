@@ -150,6 +150,10 @@ export const setBarberActive = async (id: string, active: boolean) => {
   await getBarber(id);
   return StaffModel.setBarberActive(id, active);
 };
+export const deleteBarber = async (id: string) => {
+  const deleted = await StaffModel.deleteBarber(id);
+  if (!deleted) throw AppError.notFound("Barber not found");
+};
 export const listPayments = StaffModel.listPayments;
 export const getAvailability = StaffModel.getAvailability;
 const assertNoOverlap = (hours: WorkingHourInput[]) => {

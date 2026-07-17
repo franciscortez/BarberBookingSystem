@@ -73,7 +73,8 @@ const Login: React.FC = () => {
         setPassword("");
         navigate("/login");
       } else {
-        login(data.user);
+        login(data.user, data.token);
+
         const requested = (location.state as { from?: string } | null)?.from;
         navigate(
           requested ||

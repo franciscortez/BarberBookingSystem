@@ -86,6 +86,11 @@ async function request<T>(
   const key = cacheKey ?? `${method}:${url}`;
   const isCacheableGet = method === "GET" && cacheTtlMs !== undefined;
 
+  const token = localStorage.getItem("token");
+  const authHeaders: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
+
   if (method === "GET") {
     const cached = responseCache.get(key) as CacheEntry<T> | undefined;
     const now = Date.now();
@@ -124,6 +129,7 @@ async function request<T>(
       credentials: "include" as const,
       headers: {
         "ngrok-skip-browser-warning": "true",
+        ...authHeaders,
         ...((fetchOptions.headers as Record<string, string>) || {}),
       },
       ...(isCacheableGet ? withoutSignal(fetchOptions) : fetchOptions),
@@ -151,6 +157,7 @@ async function request<T>(
     credentials: "include",
     headers: {
       "ngrok-skip-browser-warning": "true",
+      ...authHeaders,
       ...((fetchOptions.headers as Record<string, string>) || {}),
     },
     ...fetchOptions,

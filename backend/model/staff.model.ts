@@ -156,6 +156,32 @@ export const setBarberActive = async (id: string, active: boolean) => {
   }
 };
 
+export const deleteBarber = async (id: string) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const barber = await client.query(
+      "SELECT user_id FROM barbers WHERE id=$1",
+      [id],
+    );
+    const userId = barber.rows[0]?.user_id;
+    const result = await client.query(
+      "DELETE FROM barbers WHERE id=$1 RETURNING id",
+      [id],
+    );
+    if (userId) {
+      await client.query("DELETE FROM users WHERE id=$1", [userId]);
+    }
+    await client.query("COMMIT");
+    return result.rows[0] ?? null;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 export const listPayments = async () =>
   (
     await pool.query(`SELECT p.id, p.amount, p.status, p.paymongo_checkout_id, p.paymongo_payment_id, p.created_at,

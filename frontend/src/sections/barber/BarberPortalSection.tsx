@@ -8,7 +8,8 @@ import type {
   StaffDashboard,
 } from "../../types";
 import { statusClass, titleCase } from "../admin/adminPortalUtils";
-import { AvailabilityEditor } from "../admin/AdminPortalSection";
+import { AvailabilityEditor } from "../admin/availability/AvailabilityEditor";
+
 type Module = "dashboard" | "appointments" | "availability" | "profile";
 const BarberPortalSection: React.FC<{ module: Module }> = ({ module }) => {
   const [data, setData] = useState<unknown>(null);

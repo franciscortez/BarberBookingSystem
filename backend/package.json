@@ -11,6 +11,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
+    "format": "npx prettier --write \"**/*.ts\"",
+    "format:check": "npx prettier --check \"**/*.ts\"",
+
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -51,6 +54,7 @@
     "eslint": "^10.7.0",
     "jest": "^30.4.2",
     "nodemon": "^3.1.14",
+    "prettier": "^3.5.0",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
