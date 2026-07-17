@@ -17,13 +17,19 @@
         "service": "backend"
       }
     },
-    { "handle": "filesystem" },
     {
-      "source": "/((?!api).*)*",
+      "source": "/((?!api/)[^.]*)",
       "destination": {
         "type": "service",
         "service": "frontend",
-        "path": "index.html"
+        "path": "/index.html"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "type": "service",
+        "service": "frontend"
       }
     }
   ]
