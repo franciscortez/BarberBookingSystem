@@ -97,3 +97,8 @@
 ## UI Component Redesign Scope
 
 - When asked to "fix" or "improve" a UI element, make the **minimal change** that solves the stated problem. Do not replace the interaction pattern (e.g. dropdown → card grid, table → accordion) unless the user explicitly proposes or approves a different pattern. Ask first if the scope is ambiguous.
+
+## Git Operations
+
+- **Commit Only**: Only stage (`git add`) and commit (`git commit`) changes when asked. Never push (`git push`) changes to remote repository.
+
