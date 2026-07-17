@@ -186,11 +186,13 @@ const Navbar: React.FC = () => {
         <Link
           to="/"
           onClick={handleHomeClick}
-          className="flex items-center gap-2 text-white hover:text-amber-400 transition-colors duration-300 group shrink-0 min-w-0"
+          className="flex items-center gap-3 text-white hover:text-amber-400 transition-colors duration-300 group shrink-0 min-w-0"
         >
-          <div className="p-2 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-zinc-950 group-hover:scale-105 transition-transform duration-300 shrink-0">
-            <Scissors className="w-5 h-5" />
-          </div>
+          <img
+            src="/favicon.svg"
+            alt="Gentlemen's Quarters Logo"
+            className="w-10 h-10 object-contain group-hover:scale-105 transition-transform duration-300 shrink-0"
+          />
           <span className="font-bold text-sm sm:text-base md:text-lg tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-300 group-hover:from-white group-hover:to-amber-400 transition-all duration-300 truncate max-w-[180px] sm:max-w-none">
             Gentlemen's Quarters
           </span>
