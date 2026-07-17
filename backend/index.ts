@@ -101,7 +101,7 @@ app.get("/", (req, res) => {
 // Global error handler — must be registered after all routes
 app.use(errorHandler);
 
-app.get("/health", async (req, res) => {
+app.get(["/health", "/api/health"], async (req, res) => {
   try {
     await pool.query("SELECT 1");
     res.json({ status: "ok", database: "connected" });
