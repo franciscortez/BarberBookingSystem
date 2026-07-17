@@ -252,3 +252,58 @@ export const sendCancellationConfirmationEmail = async (
     console.error("Error sending cancellation confirmation email:", error);
   }
 };
+
+/**
+ * Send barber welcome email with temporary password
+ * @param {string} email - Barber's email
+ * @param {string} name - Barber's name
+ * @param {string} temporaryPassword - Temporary password set by admin
+ */
+export const sendBarberWelcomeEmail = async (
+  email: string,
+  name: string,
+  temporaryPassword: string,
+): Promise<void> => {
+  const loginUrl = buildFrontendUrl("/login");
+  const safeName = escapeHtml(name);
+  const safeEmail = escapeHtml(email);
+  const safePassword = escapeHtml(temporaryPassword);
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: "Congratulations! You're now a Barber at Gentlemen's Quarters",
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 40px 20px; background-color: #09090b; color: #f4f4f5; border-radius: 12px; border: 1px solid #27272a;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #fbbf24; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Gentlemen's Quarters</h1>
+        </div>
+        
+        <h2 style="color: #fafafa; font-size: 22px; margin-top: 0;">Welcome to the Team!</h2>
+        <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Hello ${safeName},</p>
+        <p style="color: #a1a1aa; line-height: 1.6; font-size: 16px;">Congratulations! You have been registered as a Barber at Gentlemen's Quarters. Below are your temporary login credentials to access the portal:</p>
+        
+        <div style="background-color: #18181b; padding: 25px; border-radius: 8px; border: 1px solid #27272a; margin: 30px 0;">
+          <h3 style="color: #fbbf24; margin-top: 0; margin-bottom: 15px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Login Credentials</h3>
+          <p style="margin: 10px 0; color: #d4d4d8;"><strong style="color: #71717a; display: inline-block; width: 150px;">Email:</strong> ${safeEmail}</p>
+          <p style="margin: 10px 0; color: #fbbf24;"><strong style="color: #71717a; display: inline-block; width: 150px;">Temporary Password:</strong> ${safePassword}</p>
+        </div>
+        
+        <p style="color: #a1a1aa; line-height: 1.6; font-size: 15px; margin-bottom: 20px;">Please click the button below to log in and update your password and schedule details on your profile page:</p>
+        <div style="text-align: center; margin-bottom: 40px;">
+          <a href="${loginUrl}" style="background: linear-gradient(to right, #fbbf24, #f59e0b); color: #09090b; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; margin: 10px 5px; font-size: 15px;">Log In to Portal</a>
+        </div>
+        
+        <hr style="border: 0; border-top: 1px solid #27272a; margin: 30px 0;">
+        <p style="font-size: 12px; color: #71717a; text-align: center;">This is an automated message from Gentlemen's Quarters. Please do not reply directly to this email.</p>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Welcome email sent to barber: ${email}`);
+  } catch (error) {
+    console.error("Error sending barber welcome email:", error);
+  }
+};

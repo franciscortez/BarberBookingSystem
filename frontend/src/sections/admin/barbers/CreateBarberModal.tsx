@@ -4,20 +4,21 @@ import { X } from "lucide-react";
 interface CreateBarberModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSendInvite: (form: {
+  onCreateBarber: (form: {
     name: string;
     email: string;
     phone: string;
+    password?: string;
   }) => Promise<void>;
 }
 
 const CreateBarberModal: React.FC<CreateBarberModalProps> = ({
   isOpen,
   onClose,
-  onSendInvite,
+  onCreateBarber,
 }) => {
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phone: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
 
   if (!isOpen) return null;
 
@@ -25,8 +26,8 @@ const CreateBarberModal: React.FC<CreateBarberModalProps> = ({
     e.preventDefault();
     setSubmitting(true);
     try {
-      await onSendInvite(form);
-      setForm({ name: "", email: "", phone: "" });
+      await onCreateBarber(form);
+      setForm({ name: "", email: "", phone: "", password: "" });
       onClose();
     } finally {
       setSubmitting(false);
@@ -90,6 +91,20 @@ const CreateBarberModal: React.FC<CreateBarberModalProps> = ({
             />
           </div>
 
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+              Temporary Password
+            </label>
+            <input
+              required
+              type="password"
+              placeholder="Temporary password (min 8 chars)"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:outline-hidden"
+            />
+          </div>
+
           <div className="flex justify-end gap-3 pt-3">
             <button
               type="button"
@@ -103,7 +118,7 @@ const CreateBarberModal: React.FC<CreateBarberModalProps> = ({
               disabled={submitting}
               className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 transition-colors disabled:opacity-50"
             >
-              {submitting ? "Sending..." : "Send Invitation"}
+              {submitting ? "Creating..." : "Create Barber"}
             </button>
           </div>
         </form>

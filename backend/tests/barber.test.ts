@@ -81,12 +81,60 @@ describe("Barber API Endpoints", () => {
       .delete(`/api/barbers/${barberId}`)
       .set("Authorization", `Bearer ${token}`);
   });
-
   // Test 404 for non-existent barber
   it("GET /api/barbers/:id should return 404 for non-existent ID", async () => {
     const res = await request(app).get(
       "/api/barbers/00000000-0000-0000-0000-000000000000",
     );
     expect(res.statusCode).toEqual(404);
+  });
+
+  // Test direct barber creation by admin and password update
+  it("POST /api/admin/barbers should create a barber directly with user account", async () => {
+    const newBarberData = {
+      name: "Direct Created Barber",
+      email: `direct_barber_${Date.now()}@example.com`,
+      phone: "1234567890",
+      password: "password123",
+    };
+
+    const res = await request(app)
+      .post("/api/admin/barbers")
+      .set("Authorization", `Bearer ${token}`)
+      .send(newBarberData);
+
+    expect(res.statusCode).toEqual(201);
+    expect(res.body).toHaveProperty("id");
+    expect(res.body.name).toBe(newBarberData.name);
+    expect(res.body.email).toBe(newBarberData.email);
+
+    // Verify we can login with the new barber credentials
+    const loginRes = await request(app)
+      .post("/api/auth/login")
+      .send({
+        identifier: newBarberData.email,
+        password: newBarberData.password,
+      });
+
+    expect(loginRes.statusCode).toEqual(200);
+    const barberToken = loginRes.body.token;
+
+    // Test password update for the barber
+    const updatePasswordRes = await request(app)
+      .patch("/api/barber/password")
+      .set("Authorization", `Bearer ${barberToken}`)
+      .send({
+        current_password: newBarberData.password,
+        new_password: "newpassword123",
+      });
+
+    expect(updatePasswordRes.statusCode).toEqual(200);
+    expect(updatePasswordRes.body.message).toBe("Password updated successfully");
+
+    // Clean up created user and barber
+    const barberId = res.body.id;
+    await request(app)
+      .delete(`/api/admin/barbers/${barberId}`)
+      .set("Authorization", `Bearer ${token}`);
   });
 });

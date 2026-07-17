@@ -5,11 +5,9 @@ import {
   Eye,
   Pencil,
   Trash2,
-  RefreshCw,
-  XCircle,
 } from "lucide-react";
 
-import type { BarberInvitation, StaffBarber } from "../../../types";
+import type { StaffBarber } from "../../../types";
 import AdminHeader from "../common/AdminHeader";
 import { BarbersSkeleton } from "../common/AdminSkeletons";
 import CreateBarberModal from "./CreateBarberModal";
@@ -20,42 +18,32 @@ interface BarbersSectionProps {
   loading: boolean;
   error: string;
   barbers: StaffBarber[];
-  invitations: BarberInvitation[];
   singleView?: boolean;
   onUpdateBarber: (
     id: string,
     data: { name: string; phone: string },
   ) => Promise<void>;
   onDeleteBarber: (id: string, name: string) => Promise<void>;
-  onSendInvite: (form: {
+  onCreateBarber: (form: {
     name: string;
     email: string;
     phone: string;
+    password?: string;
   }) => Promise<void>;
-  onInvitationAction: (
-    id: string,
-    action: "resend" | "revoke",
-  ) => Promise<void>;
 }
 
 const BarbersSection: React.FC<BarbersSectionProps> = ({
   loading,
   error,
   barbers,
-  invitations,
   singleView = false,
   onUpdateBarber,
   onDeleteBarber,
-  onSendInvite,
-  onInvitationAction,
+  onCreateBarber,
 }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [viewingBarber, setViewingBarber] = useState<StaffBarber | null>(null);
   const [editingBarber, setEditingBarber] = useState<StaffBarber | null>(null);
-
-  const pendingInvitations = singleView
-    ? []
-    : invitations.filter((inv) => inv.status === "pending");
 
   if (loading) {
     return <BarbersSkeleton />;
@@ -158,53 +146,10 @@ const BarbersSection: React.FC<BarbersSectionProps> = ({
                   </td>
                 </tr>
               ))}
-
-              {/* Pending Invitation Rows */}
-              {pendingInvitations.map((invite) => (
-                <tr
-                  key={invite.id}
-                  className="bg-amber-50/20 hover:bg-amber-50/40"
-                >
-                  <td className="px-4 py-3 font-semibold text-slate-900">
-                    {invite.name}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">{invite.email}</td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {invite.phone || "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="rounded-full px-2 py-1 text-xs font-medium ring-1 bg-amber-50 text-amber-700 ring-amber-200">
-                      Pending
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() =>
-                          void onInvitationAction(invite.id, "resend")
-                        }
-                        title="Resend Invitation"
-                        className="p-1.5 rounded-md text-slate-500 hover:text-amber-600 hover:bg-amber-50 transition-colors"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() =>
-                          void onInvitationAction(invite.id, "revoke")
-                        }
-                        title="Revoke Invitation"
-                        className="p-1.5 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
-                      >
-                        <XCircle className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
             </tbody>
           </table>
         </div>
-        {!barbers.length && !pendingInvitations.length && (
+        {!barbers.length && (
           <p className="p-8 text-center text-sm text-slate-500">
             No barbers found.
           </p>
@@ -214,7 +159,7 @@ const BarbersSection: React.FC<BarbersSectionProps> = ({
       <CreateBarberModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSendInvite={onSendInvite}
+        onCreateBarber={onCreateBarber}
       />
 
       <ViewBarberModal

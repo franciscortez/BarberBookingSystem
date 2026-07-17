@@ -13,6 +13,8 @@ import {
   ReplaceWorkingHoursSchema,
   AvailabilityBlockSchema,
   WalkinBookingSchema,
+  DirectCreateBarberSchema,
+  UpdatePasswordSchema,
 } from "../validation/staff.validation";
 
 const barberId = (req: Request) =>
@@ -476,6 +478,35 @@ export const adminCreateWalkin = async (
       message: "Walk-in booking created successfully",
       appointment,
     });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const createBarber = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const data = DirectCreateBarberSchema.parse(req.body);
+    const barber = await StaffService.createBarberDirect(data);
+    res.status(201).json(barber);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const updatePassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = (req as AuthenticatedRequest).user!.id;
+    const data = UpdatePasswordSchema.parse(req.body);
+    await StaffService.updateBarberPassword(userId, data);
+    res.json({ message: "Password updated successfully" });
   } catch (e) {
     next(e);
   }

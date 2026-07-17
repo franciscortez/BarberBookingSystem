@@ -19,5 +19,6 @@ router.delete("/availability/blocks/:id", c.barberDeleteBlock);
 
 router.get("/profile", c.profile);
 router.patch("/profile", c.updateProfile);
+router.patch("/password", c.updatePassword);
 
 export = router;

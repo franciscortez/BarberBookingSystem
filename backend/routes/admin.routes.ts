@@ -22,6 +22,7 @@ router.patch("/appointments/:id/status", c.adminStatus);
 router.patch("/appointments/:id/schedule", c.adminReschedule);
 
 router.get("/barbers", c.listBarbers);
+router.post("/barbers", c.createBarber);
 router.get("/barbers/:id", c.getBarber);
 router.patch("/barbers/:id", c.updateBarber);
 router.patch("/barbers/:id/active", c.setBarberActive);

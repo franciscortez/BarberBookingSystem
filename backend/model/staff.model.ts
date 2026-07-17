@@ -174,6 +174,7 @@ export const listBarbers = async () =>
     })
     .from(barbers)
     .leftJoin(users, eq(users.id, barbers.user_id))
+    .where(eq(barbers.is_active, true))
     .orderBy(asc(barbers.name));
 
 export const getBarber = async (id: string) => {
@@ -191,7 +192,7 @@ export const getBarber = async (id: string) => {
     })
     .from(barbers)
     .leftJoin(users, eq(users.id, barbers.user_id))
-    .where(eq(barbers.id, id));
+    .where(and(eq(barbers.id, id), eq(barbers.is_active, true)));
   return rows[0] ?? null;
 };
 

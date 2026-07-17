@@ -34,12 +34,20 @@ const Profile: React.FC = () => {
     await fetchProfile();
   };
 
+  const handleUpdatePassword = async (current_password: string, new_password: string) => {
+    await staffRequest("/api/barber/password", {
+      method: "PATCH",
+      body: JSON.stringify({ current_password, new_password }),
+    });
+  };
+
   return (
     <BarberProfileSection
       loading={loading}
       error={error}
       profile={profile}
       onUpdateProfile={handleUpdateProfile}
+      onUpdatePassword={handleUpdatePassword}
     />
   );
 };

@@ -5,7 +5,7 @@ import * as StaffModel from "../model/staff.model";
 import * as AppointmentModel from "../model/appointment.model";
 import * as ServiceModel from "../model/service.model";
 import { enqueueEmailJob } from "../utils/emailQueue";
-import { sendBarberInvitationEmail } from "../utils/emailService";
+import { sendBarberInvitationEmail, sendBarberWelcomeEmail } from "../utils/emailService";
 import { validateBookableSlot } from "../utils/bookingRules";
 import { buildEndTime } from "../validation/appointment.validation";
 import { AppError } from "../utils/AppError";
@@ -16,6 +16,8 @@ import {
   InviteBarberInput,
   WorkingHourInput,
   AvailabilityBlockInput,
+  DirectCreateBarberInput,
+  UpdatePasswordInput,
 } from "../validation/staff.validation";
 import { users, barbers, barber_invitations } from "../config/db/schema";
 import { eq, and, sql } from "drizzle-orm";
@@ -449,4 +451,92 @@ export const createWalkinAppointment = async (input: {
   }
 
   return newAppointment;
+};
+
+export const createBarberDirect = async (
+  input: DirectCreateBarberInput,
+) => {
+  const emailLower = input.email.toLowerCase();
+
+  const duplicateUsers = await pool.db
+    .select({ id: users.id })
+    .from(users)
+    .where(sql`LOWER(${users.email}) = ${emailLower}`);
+
+  if (duplicateUsers.length)
+    throw AppError.conflict("Email already registered");
+
+  const passwordHash = await bcrypt.hash(input.password, 10);
+
+  const result = await pool.db.transaction(async (tx) => {
+    const userRows = await tx
+      .insert(users)
+      .values({
+        name: input.name,
+        email: input.email,
+        phone: input.phone,
+        password_hash: passwordHash,
+        role: "barber",
+      })
+      .returning({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        phone: users.phone,
+        role: users.role,
+      });
+
+    const user = userRows[0];
+
+    const barberRows = await tx
+      .insert(barbers)
+      .values({
+        user_id: user.id,
+        name: input.name,
+        email: input.email,
+        phone: input.phone,
+      })
+      .returning({
+        id: barbers.id,
+        user_id: barbers.user_id,
+        name: barbers.name,
+        email: barbers.email,
+        phone: barbers.phone,
+        is_active: barbers.is_active,
+      });
+
+    return barberRows[0];
+  });
+
+  // Send the welcome email with credentials to the barber asynchronously
+  void sendBarberWelcomeEmail(input.email, input.name, input.password).catch((err) => {
+    console.error("Failed to send welcome email to barber:", err);
+  });
+
+  return result;
+};
+
+export const updateBarberPassword = async (
+  userId: string,
+  input: UpdatePasswordInput,
+) => {
+  const user = await pool.db
+    .select()
+    .from(users)
+    .where(eq(users.id, userId));
+
+  if (!user.length) throw AppError.notFound("User not found");
+
+  const isMatch = await bcrypt.compare(input.current_password, user[0].password_hash);
+  if (!isMatch) throw AppError.badRequest("Incorrect current password");
+
+  const newPasswordHash = await bcrypt.hash(input.new_password, 10);
+
+  await pool.db
+    .update(users)
+    .set({
+      password_hash: newPasswordHash,
+      updated_at: sql`CURRENT_TIMESTAMP`,
+    })
+    .where(eq(users.id, userId));
 };

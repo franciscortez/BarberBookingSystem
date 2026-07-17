@@ -28,6 +28,13 @@ export const ActiveStateSchema = z.object({ is_active: z.boolean() });
 export const InviteBarberSchema = BarberProfileSchema.extend({
   email: z.string().trim().email().max(255),
 });
+export const DirectCreateBarberSchema = InviteBarberSchema.extend({
+  password: z.string().min(8).max(72),
+});
+export const UpdatePasswordSchema = z.object({
+  current_password: z.string().min(1, "Current password is required"),
+  new_password: z.string().min(8, "New password must be at least 8 characters").max(72),
+});
 export const AcceptInvitationSchema = z.object({
   token: z.string().min(32),
   password: z.string().min(8).max(72),
@@ -60,6 +67,8 @@ export type AppointmentFilters = z.infer<typeof AppointmentFiltersSchema>;
 export type StaffRescheduleInput = z.infer<typeof StaffRescheduleSchema>;
 export type BarberProfileInput = z.infer<typeof BarberProfileSchema>;
 export type InviteBarberInput = z.infer<typeof InviteBarberSchema>;
+export type DirectCreateBarberInput = z.infer<typeof DirectCreateBarberSchema>;
+export type UpdatePasswordInput = z.infer<typeof UpdatePasswordSchema>;
 export type WorkingHourInput = z.infer<typeof WorkingHourSchema>;
 export type AvailabilityBlockInput = z.infer<typeof AvailabilityBlockSchema>;
 
