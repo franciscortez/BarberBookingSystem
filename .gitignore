@@ -22,6 +22,7 @@ backend/scripts/seed.js
 dist/
 backend/dist/
 frontend/dist/
+.vercel/
 
 # Agent and Codex
 .codex/

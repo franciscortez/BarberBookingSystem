@@ -197,3 +197,25 @@ The workspace supports deployment to Vercel via the root `vercel.json` routing:
 - Roots `/api/*` are mapped to the backend service.
 - All other routes map to the static React frontend.
 - **Environment Configuration**: Set `VITE_API_URL` to your Vercel deployment domain (e.g., `https://your-domain.vercel.app`) without trailing `/api` (avoiding duplicate `/api/api` routing paths).
+
+The backend service uses the repository root with `backend/index.ts` as its entrypoint. This keeps the emitted handler and its dependencies together under `backend/` in the Vercel function. Its install command runs next to the entrypoint's package manifest; its build command runs from the service root. Both services use `npm ci --include=dev` so the existing lockfiles determine package versions and TypeScript build tools remain available when `NODE_ENV=production`.
+
+SPA rewrites belong in the frontend service definition in the root `vercel.json`. The nested `frontend/vercel.json` is not included automatically in the Services build. Filesystem routing serves assets before the `/index.html` fallback handles direct links and refreshes.
+
+Before deploying, build a standalone artifact and verify its routing and runtime dependencies:
+
+```bash
+npx vercel build --standalone
+npm run verify:vercel
+```
+
+The verification script copies the function into an isolated directory, imports its actual handler, and checks authentication rejection plus both health responses using a mocked database query. It does not contact the production database or create bookings or payments.
+
+After deployment, these read-only checks validate the deployed database connection and catalog queries:
+
+```bash
+curl -i https://gentlemensquarter.vercel.app/api/health
+curl -i https://gentlemensquarter.vercel.app/api/catalog
+```
+
+Health should return HTTP 200 with `{"status":"ok","database":"connected"}`. It runs `SELECT 1`, so it verifies connectivity but not application schema or data. Catalog should return HTTP 200 with JSON; empty arrays mean no catalog data, not a connection failure. Also open `/book`, `/login`, and `/signup` directly and refresh each route. See [the deployment audit](docs/vercel-audit-2026-09-30.md) for the original failures and validation scope.

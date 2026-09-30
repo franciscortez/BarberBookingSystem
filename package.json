@@ -2,6 +2,7 @@
   "name": "barber-booking-system",
   "private": true,
   "scripts": {
+    "verify:vercel": "node scripts/verify-vercel-build.cjs",
     "format": "npm run format --prefix frontend && npm run format --prefix backend",
     "format:check": "npm run format:check --prefix frontend && npm run format:check --prefix backend",
     "typecheck": "npm run typecheck --prefix frontend && npm run typecheck --prefix backend",

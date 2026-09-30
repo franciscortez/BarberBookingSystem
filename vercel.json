@@ -2,33 +2,33 @@
   "services": {
     "frontend": {
       "root": "frontend",
-      "framework": "vite"
+      "framework": "vite",
+      "installCommand": "npm ci --include=dev",
+      "rewrites": [
+        {
+          "source": "/(.*)",
+          "destination": "/index.html"
+        }
+      ]
     },
     "backend": {
-      "root": "backend",
-      "entrypoint": "index.ts"
+      "root": ".",
+      "framework": "express",
+      "entrypoint": "backend/index.ts",
+      "installCommand": "npm ci --include=dev",
+      "buildCommand": "npm run build --prefix backend"
     }
   },
   "rewrites": [
     {
       "source": "/api(/.*)?",
       "destination": {
-        "type": "service",
         "service": "backend"
-      }
-    },
-    {
-      "source": "/((?!api/)[^.]*)",
-      "destination": {
-        "type": "service",
-        "service": "frontend",
-        "path": "/index.html"
       }
     },
     {
       "source": "/(.*)",
       "destination": {
-        "type": "service",
         "service": "frontend"
       }
     }
