@@ -1,4 +1,4 @@
 import { useAuthForm } from "../../hooks/useAuthForm";
 import AuthSection from "../../sections/user/auth/AuthSection";
-const Login = () => <AuthSection {...useAuthForm("login")} />;
-export default Login;
+const Signup = () => <AuthSection {...useAuthForm("signup")} />;
+export default Signup;

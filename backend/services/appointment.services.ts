@@ -8,7 +8,7 @@ import * as paymongoConfig from "../config/paymongo";
 import { enqueueEmailJob } from "../utils/emailQueue";
 import { validateBookableSlot } from "../utils/bookingRules";
 import { AppError } from "../utils/AppError";
-import { Appointment, AppointmentDetails } from "../types";
+import { Appointment, AppointmentDetails, PublicBookingStatus } from "../types";
 import {
   CreateBookingSchema,
   RescheduleBookingSchema,
@@ -272,6 +272,29 @@ export const getManagedBooking = async (
   assertLeadTimeForManagement(appointment);
 
   return (await AppointmentModel.getAppointmentDetails(appointment.id))!;
+};
+
+export const getBookingStatus = async (
+  token: string,
+): Promise<PublicBookingStatus> => {
+  const result = await AppointmentModel.getPublicBookingStatus(token);
+  if (!result) throw AppError.notFound("Booking not found");
+  return {
+    appointment: {
+      status: result.status as PublicBookingStatus["appointment"]["status"],
+      customer_name: result.customer_name,
+      customer_email: result.customer_email,
+      barber_name: result.barber_name,
+      service_name: result.service_name,
+      appointment_date: result.appointment_date,
+      start_time: result.start_time,
+      end_time: result.end_time,
+      payment_reference_number: result.payment_reference_number,
+      downpayment_amount: result.downpayment_amount,
+    },
+    payment_status:
+      result.payment_status as PublicBookingStatus["payment_status"],
+  };
 };
 
 export const rescheduleBooking = async (

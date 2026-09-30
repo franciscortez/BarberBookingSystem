@@ -11,6 +11,7 @@ import {
   RescheduleBookingRoute,
   SuccessPageRoute,
   LoginRoute,
+  SignupRoute,
   AcceptBarberInvitationRoute,
   AdminDashboardRoute,
   AdminAppointmentsRoute,
@@ -46,6 +47,7 @@ const App: React.FC = () => {
               />
               <Route path="/cancel-booking" element={<CancelBookingRoute />} />
               <Route path="/login" element={<LoginRoute />} />
+              <Route path="/signup" element={<SignupRoute />} />
               <Route
                 path="/accept-barber-invitation"
                 element={<AcceptBarberInvitationRoute />}

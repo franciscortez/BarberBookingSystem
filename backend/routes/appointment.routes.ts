@@ -13,6 +13,7 @@ router.post(
   appointmentController.createBooking,
 );
 router.get("/manage", appointmentController.getManagedBooking);
+router.get("/status", appointmentController.getBookingStatus);
 router.post(
   "/reschedule",
   bookingMutationLimiter,

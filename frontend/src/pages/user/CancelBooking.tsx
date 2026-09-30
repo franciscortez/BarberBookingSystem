@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getManagedBooking, cancelBooking } from "../../services/api";
 import type { Appointment } from "../../types";
@@ -7,6 +7,8 @@ import CancelSection from "../../sections/user/cancel/CancelSection";
 const CancelBooking: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
+  const [bookingAttempt, setBookingAttempt] = useState(0);
+  const submissionLock = useRef(false);
 
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [loadingBooking, setLoadingBooking] = useState<boolean>(true);
@@ -23,12 +25,17 @@ const CancelBooking: React.FC = () => {
     const fetchBooking = async () => {
       try {
         setLoadingBooking(true);
+        setBookingError(null);
+        setAppointment(null);
+        setSubmitError(null);
+        setCancelled(false);
         const appt = await getManagedBooking(token, {
           signal: controller.signal,
         });
+        if (controller.signal.aborted) return;
         setAppointment(appt);
       } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (controller.signal.aborted) return;
         setBookingError(
           err instanceof Error
             ? err.message
@@ -41,11 +48,13 @@ const CancelBooking: React.FC = () => {
 
     fetchBooking();
     return () => controller.abort();
-  }, [token]);
+  }, [token, bookingAttempt]);
 
   const handleCancelSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submissionLock.current) return;
     if (!token) return;
+    submissionLock.current = true;
     try {
       setSubmitting(true);
       setSubmitError(null);
@@ -58,12 +67,14 @@ const CancelBooking: React.FC = () => {
           : "Cancellation failed. Please try again.",
       );
     } finally {
+      submissionLock.current = false;
       setSubmitting(false);
     }
   };
 
   return (
     <CancelSection
+      onRetry={() => setBookingAttempt((value) => value + 1)}
       token={token}
       appointment={appointment}
       loadingBooking={loadingBooking}

@@ -27,3 +27,6 @@ frontend/dist/
 .codex/
 
 
+
+# Generated browser verification captures
+.impeccable/review/

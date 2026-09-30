@@ -1,25 +1,4 @@
-@font-face {
-  font-family: "Barlow Condensed";
-  src: url("/fonts/barlow-condensed-bold.ttf") format("truetype");
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Manrope";
-  src: url("/fonts/manrope-variable.ttf") format("truetype");
-  font-style: normal;
-  font-weight: 200 800;
-  font-display: swap;
-}
 .landing-page {
-  --landing-bg: #141414;
-  --landing-surface: #202020;
-  --landing-text: #f3f1eb;
-  --landing-muted: #b8b6b0;
-  --landing-accent: #e9c46a;
-  --landing-rule: #383833;
-  --landing-radius: 6px;
   position: relative;
   overflow-x: clip;
   min-height: 100dvh;

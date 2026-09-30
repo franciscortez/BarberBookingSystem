@@ -1,4 +1,18 @@
-import type { Barber, Service, Appointment } from "../types";
+import type {
+  Barber,
+  Service,
+  Appointment,
+  PublicBookingStatus,
+} from "../types";
+
+export class ApiError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
 
 const rawApiBaseUrl = (
   import.meta.env.VITE_API_URL as string | undefined
@@ -70,7 +84,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
     } catch {
       // Ignore JSON parse failure for non-JSON errors
     }
-    throw new Error(errorMessage);
+    throw new ApiError(errorMessage, response.status);
   }
   return response.json() as Promise<T>;
 }
@@ -319,7 +333,7 @@ export interface AvailabilityResponse {
     start: string;
     end: string;
     available: boolean;
-    unavailableReason?: "booked" | "past";
+    unavailableReason?: "booked" | "past" | "blocked" | "outside_hours";
   }[];
   availableSlots: { start: string; end: string }[];
 }
@@ -377,6 +391,16 @@ export async function getManagedBooking(
     {
       signal: options.signal,
     },
+  );
+}
+
+export async function getBookingStatus(
+  token: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<PublicBookingStatus> {
+  return request<PublicBookingStatus>(
+    "/api/appointments/status?token=" + encodeURIComponent(token),
+    { signal: options.signal },
   );
 }
 

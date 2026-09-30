@@ -24,6 +24,9 @@ export const CancelBookingRoute = lazyWithPreload(
   () => import("../pages/user/CancelBooking"),
 );
 export const LoginRoute = lazyWithPreload(() => import("../pages/user/Login"));
+export const SignupRoute = lazyWithPreload(
+  () => import("../pages/user/Signup"),
+);
 export const AcceptBarberInvitationRoute = lazyWithPreload(
   () => import("../pages/user/AcceptBarberInvitation"),
 );

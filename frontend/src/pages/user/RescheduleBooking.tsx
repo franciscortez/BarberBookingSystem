@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   getManagedBooking,
@@ -17,12 +17,15 @@ import RescheduleSection from "../../sections/user/reschedule/RescheduleSection"
 const RescheduleBooking: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
+  const [bookingAttempt, setBookingAttempt] = useState(0);
+  const submissionLock = useRef(false);
 
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [loadingBooking, setLoadingBooking] = useState<boolean>(true);
   const [bookingError, setBookingError] = useState<string | null>(null);
 
   const [selectedDate, setSelectedDate] = useState<string>("");
+  const [slotAttempt, setSlotAttempt] = useState(0);
   const [slotOptions, setSlotOptions] = useState<SlotOption[]>([]);
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
   const [selectedSlot, setSelectedSlot] = useState<{
@@ -55,12 +58,21 @@ const RescheduleBooking: React.FC = () => {
     const fetchBooking = async () => {
       try {
         setLoadingBooking(true);
+        setBookingError(null);
+        setAppointment(null);
+        setSubmitError(null);
+        setRescheduled(false);
+        setUpdatedAppointment(null);
+        setSelectedDate("");
+        setSelectedSlot(null);
+        setSlotOptions([]);
         const appt = await getManagedBooking(token, {
           signal: controller.signal,
         });
+        if (controller.signal.aborted) return;
         setAppointment(appt);
       } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (controller.signal.aborted) return;
         setBookingError(
           err instanceof Error
             ? err.message
@@ -73,7 +85,7 @@ const RescheduleBooking: React.FC = () => {
 
     fetchBooking();
     return () => controller.abort();
-  }, [token]);
+  }, [token, bookingAttempt]);
 
   useEffect(() => {
     if (!appointment || !selectedDate) return;
@@ -92,6 +104,7 @@ const RescheduleBooking: React.FC = () => {
             signal: controller.signal,
           },
         );
+        if (controller.signal.aborted) return;
         setSlotOptions(
           buildSlotOptions(
             selectedDate,
@@ -100,7 +113,7 @@ const RescheduleBooking: React.FC = () => {
           ),
         );
       } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (controller.signal.aborted) return;
         setSlotOptions([]);
         setAvailabilityError(
           err instanceof Error
@@ -114,11 +127,13 @@ const RescheduleBooking: React.FC = () => {
 
     fetchSlots();
     return () => controller.abort();
-  }, [appointment, selectedDate]);
+  }, [appointment, selectedDate, slotAttempt]);
 
   const handleRescheduleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submissionLock.current) return;
     if (!token || !selectedDate || !selectedSlot) return;
+    submissionLock.current = true;
     try {
       setSubmitting(true);
       setSubmitError(null);
@@ -136,6 +151,7 @@ const RescheduleBooking: React.FC = () => {
           : "Rescheduling failed. The selected slot may no longer be available.",
       );
     } finally {
+      submissionLock.current = false;
       setSubmitting(false);
     }
   };
@@ -149,6 +165,8 @@ const RescheduleBooking: React.FC = () => {
 
   return (
     <RescheduleSection
+      onRetrySlots={() => setSlotAttempt((value) => value + 1)}
+      onRetry={() => setBookingAttempt((value) => value + 1)}
       token={token}
       appointment={appointment}
       updatedAppointment={updatedAppointment}

@@ -4,6 +4,10 @@ import { AppError } from "../utils/AppError";
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 const timeRegex = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 
+export const BookingStatusQuerySchema = z.object({
+  token: z.string().uuid("Valid booking token is required"),
+});
+
 /**
  * Validates that a YYYY-MM-DD string is a real calendar date (not e.g. 2024-02-30).
  * Used as a Zod superRefine to give a consistent error message.

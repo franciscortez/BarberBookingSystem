@@ -15,3 +15,9 @@ export interface AuthState {
   login: (user: AuthUser, token?: string, refreshToken?: string) => void;
   logout: () => Promise<void>;
 }
+
+export interface AuthResponse {
+  user: AuthUser;
+  token: string;
+  refreshToken: string;
+}

@@ -1,15 +1,45 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import LandingNavbar from "../sections/user/home/LandingNavbar";
 import LandingFooter from "../sections/user/home/LandingFooter";
+import {
+  TaskHeader,
+  TaskFooter,
+  TaskLoading,
+} from "../sections/user/common/TaskChrome";
+import "../styles/public-brand.css";
 
 const PublicLayout: React.FC = () => {
-  const isLanding = useLocation().pathname === "/";
+  const pathname = useLocation().pathname;
+  const isLanding = pathname === "/";
+  const isTask = [
+    "/login",
+    "/signup",
+    "/book",
+    "/success",
+    "/reschedule-booking",
+    "/cancel-booking",
+  ].includes(pathname);
+  if (isTask)
+    return (
+      <div className="public-brand public-task">
+        <a className="landing-skip" href="#main-content">
+          Skip to content
+        </a>
+        <TaskHeader pathname={pathname} />
+        <main id="main-content" tabIndex={-1}>
+          <Suspense fallback={<TaskLoading />}>
+            <Outlet />
+          </Suspense>
+        </main>
+        <TaskFooter />
+      </div>
+    );
   if (isLanding) {
     return (
-      <div className="landing-page">
+      <div className="public-brand landing-page">
         <a className="landing-skip" href="#main-content">
           Skip to content
         </a>

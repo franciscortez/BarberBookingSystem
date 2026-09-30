@@ -1,6 +1,22 @@
 import { Request, Response, NextFunction } from "express";
 import * as AppointmentService from "../services/appointment.services";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
+import { BookingStatusQuerySchema } from "../validation/appointment.validation";
+
+export const getBookingStatus = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const { token } = BookingStatusQuerySchema.parse(req.query);
+    const status = await AppointmentService.getBookingStatus(token);
+    res.setHeader("Cache-Control", "no-store");
+    res.json(status);
+  } catch (err) {
+    next(err);
+  }
+};
 
 export const createBooking = async (
   req: Request,

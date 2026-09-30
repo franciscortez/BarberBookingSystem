@@ -1,70 +1,62 @@
-import React from "react";
-import { User } from "lucide-react";
+import FormField from "../common/FormField";
 
-interface ContactStepProps {
+interface Props {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
-  onChangeName: (v: string) => void;
-  onChangeEmail: (v: string) => void;
-  onChangePhone: (v: string) => void;
+  errors?: Record<string, string>;
+  onChangeName: (value: string) => void;
+  onChangeEmail: (value: string) => void;
+  onChangePhone: (value: string) => void;
 }
-
-const ContactStep: React.FC<ContactStepProps> = ({
-  customerName,
-  customerEmail,
-  customerPhone,
-  onChangeName,
-  onChangeEmail,
-  onChangePhone,
-}) => (
-  <div>
-    <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-      <User className="w-5 h-5 text-amber-400" />
-      Customer Contact Details
+const ContactStep = (props: Props) => (
+  <div className="booking-step">
+    <h2 id="booking-step-heading" tabIndex={-1} className="booking-step-title">
+      Your contact details
     </h2>
-    <div className="max-w-md space-y-5">
-      <div>
-        <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
-          Full Name
-        </label>
-        <input
-          type="text"
-          placeholder="e.g. Juan dela Cruz"
-          value={customerName}
-          onChange={(e) => onChangeName(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-zinc-800 bg-zinc-950 focus:border-amber-500 focus:outline-none text-base sm:text-sm text-zinc-200 transition-colors placeholder:text-zinc-600"
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
-          Email Address
-        </label>
-        <input
-          type="email"
-          placeholder="e.g. juan@email.com"
-          value={customerEmail}
-          onChange={(e) => onChangeEmail(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-zinc-800 bg-zinc-950 focus:border-amber-500 focus:outline-none text-base sm:text-sm text-zinc-200 transition-colors placeholder:text-zinc-600"
-        />
-        <span className="text-[10px] text-zinc-500 mt-1.5 block">
-          Your secure management links will be sent here.
-        </span>
-      </div>
-      <div>
-        <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
-          Phone Number
-        </label>
-        <input
-          type="tel"
-          placeholder="e.g. 09171234567"
-          value={customerPhone}
-          onChange={(e) => onChangePhone(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-zinc-800 bg-zinc-950 focus:border-amber-500 focus:outline-none text-base sm:text-sm text-zinc-200 transition-colors placeholder:text-zinc-600"
-        />
-      </div>
+    <p className="task-muted">
+      We use these details for your appointment and email management links. No
+      account is required.
+    </p>
+    <div className="task-form booking-contact">
+      <FormField
+        id="contact-name"
+        name="customer_name"
+        label="Full name"
+        autoComplete="name"
+        required
+        maxLength={255}
+        value={props.customerName}
+        error={props.errors?.name}
+        onChange={(event) => props.onChangeName(event.target.value)}
+      />
+      <FormField
+        id="contact-email"
+        name="customer_email"
+        label="Email address"
+        type="email"
+        autoComplete="email"
+        autoCapitalize="none"
+        spellCheck={false}
+        required
+        value={props.customerEmail}
+        error={props.errors?.email}
+        help="Check this address carefully. Your management links will be sent here."
+        onChange={(event) => props.onChangeEmail(event.target.value)}
+      />
+      <FormField
+        id="contact-phone"
+        name="customer_phone"
+        label="Phone number"
+        type="tel"
+        autoComplete="tel"
+        required
+        maxLength={50}
+        value={props.customerPhone}
+        error={props.errors?.phone}
+        onChange={(event) => props.onChangePhone(event.target.value)}
+      />
     </div>
   </div>
 );
-
 export default ContactStep;

@@ -18,6 +18,7 @@ import {
   AppointmentDetails,
   CreateAppointmentInput,
   RescheduleScheduleInput,
+  BookingStatusRecord,
 } from "../types";
 
 /**
@@ -195,6 +196,35 @@ export const lockBarber = async (
  * @param {string} id
  * @returns {Promise<AppointmentDetails|null>}
  */
+export const getPublicBookingStatus = async (
+  token: string,
+): Promise<BookingStatusRecord | null> => {
+  const rows = await db
+    .select({
+      status: appointments.status,
+      customer_name: appointments.customer_name,
+      customer_email: appointments.customer_email,
+      barber_name: barbers.name,
+      service_name: services.name,
+      appointment_date:
+        sql`TO_CHAR(${appointments.appointment_date}, 'YYYY-MM-DD')`.mapWith(
+          String,
+        ),
+      start_time: appointments.start_time,
+      end_time: appointments.end_time,
+      payment_reference_number: payments.id,
+      downpayment_amount: payments.amount,
+      payment_status: payments.status,
+    })
+    .from(appointments)
+    .leftJoin(barbers, eq(appointments.barber_id, barbers.id))
+    .leftJoin(services, eq(appointments.service_id, services.id))
+    .leftJoin(payments, eq(payments.appointment_id, appointments.id))
+    .where(eq(appointments.management_token, token))
+    .limit(1);
+  return rows[0] ?? null;
+};
+
 export const getAppointmentDetails = async (
   id: string,
   client: any = pool,

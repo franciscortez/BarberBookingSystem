@@ -2,7 +2,7 @@ export type SlotOption = {
   start: string;
   end: string;
   available: boolean;
-  unavailableReason?: "booked" | "past";
+  unavailableReason?: "booked" | "past" | "blocked" | "outside_hours";
 };
 
 export const parseAmount = (price: number | string): number => {
@@ -64,7 +64,7 @@ export const buildSlotOptions = (
     start: string;
     end: string;
     available?: boolean;
-    unavailableReason?: "booked" | "past";
+    unavailableReason?: "booked" | "past" | "blocked" | "outside_hours";
   }[],
 ): SlotOption[] => {
   const START_HOUR = 9;

@@ -26,3 +26,25 @@ export interface AvailabilitySlot {
   time: string;
   available: boolean;
 }
+
+export interface PublicBookingStatus {
+  appointment: {
+    status:
+      | "pending"
+      | "confirmed"
+      | "checked_in"
+      | "completed"
+      | "no_show"
+      | "cancelled";
+    customer_name: string;
+    customer_email: string;
+    barber_name: string | null;
+    service_name: string | null;
+    appointment_date: string;
+    start_time: string;
+    end_time: string;
+    payment_reference_number: string | null;
+    downpayment_amount: string | null;
+  };
+  payment_status: "pending" | "paid" | "failed" | null;
+}
