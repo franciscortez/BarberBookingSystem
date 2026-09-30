@@ -1,0 +1,108 @@
+{
+  "barbers": [
+    {
+      "id": "demo-marco",
+      "name": "Marco"
+    },
+    {
+      "id": "demo-luis",
+      "name": "Luis"
+    },
+    {
+      "id": "demo-kevin",
+      "name": "Kevin"
+    }
+  ],
+  "services": [
+    {
+      "id": "demo-haircut-marco",
+      "barber_id": "demo-marco",
+      "barber_name": "Marco",
+      "name": "Haircut",
+      "description": "A considered cut, finished with a wash and styling.",
+      "total_price": 500,
+      "downpayment_amount": 100,
+      "duration_mins": 30
+    },
+    {
+      "id": "demo-haircut-luis",
+      "barber_id": "demo-luis",
+      "barber_name": "Luis",
+      "name": "Haircut",
+      "description": "A considered cut, finished with a wash and styling.",
+      "total_price": 450,
+      "downpayment_amount": 100,
+      "duration_mins": 30
+    },
+    {
+      "id": "demo-haircut-kevin",
+      "barber_id": "demo-kevin",
+      "barber_name": "Kevin",
+      "name": "Haircut",
+      "description": "A considered cut, finished with a wash and styling.",
+      "total_price": 400,
+      "downpayment_amount": 100,
+      "duration_mins": 45
+    },
+    {
+      "id": "demo-beard-marco",
+      "barber_id": "demo-marco",
+      "barber_name": "Marco",
+      "name": "Beard Trim",
+      "description": "Shape, tidy, and define. A clean finish for your beard.",
+      "total_price": 350,
+      "downpayment_amount": 50,
+      "duration_mins": 30
+    },
+    {
+      "id": "demo-beard-luis",
+      "barber_id": "demo-luis",
+      "barber_name": "Luis",
+      "name": "Beard Trim",
+      "description": "Shape, tidy, and define. A clean finish for your beard.",
+      "total_price": 300,
+      "downpayment_amount": 50,
+      "duration_mins": 30
+    },
+    {
+      "id": "demo-combo-marco",
+      "barber_id": "demo-marco",
+      "barber_name": "Marco",
+      "name": "Haircut & Beard Trim",
+      "description": "The complete refresh. Your cut and beard, taken care of together.",
+      "total_price": 750,
+      "downpayment_amount": 150,
+      "duration_mins": 60
+    },
+    {
+      "id": "demo-combo-luis",
+      "barber_id": "demo-luis",
+      "barber_name": "Luis",
+      "name": "Haircut & Beard Trim",
+      "description": "The complete refresh. Your cut and beard, taken care of together.",
+      "total_price": 650,
+      "downpayment_amount": 150,
+      "duration_mins": 60
+    },
+    {
+      "id": "demo-shave-marco",
+      "barber_id": "demo-marco",
+      "barber_name": "Marco",
+      "name": "Hot Towel Shave",
+      "description": "A traditional shave with a warm towel and soothing finish.",
+      "total_price": 400,
+      "downpayment_amount": 100,
+      "duration_mins": 45
+    },
+    {
+      "id": "demo-shave-kevin",
+      "barber_id": "demo-kevin",
+      "barber_name": "Kevin",
+      "name": "Hot Towel Shave",
+      "description": "A traditional shave with a warm towel and soothing finish.",
+      "total_price": 350,
+      "downpayment_amount": 100,
+      "duration_mins": 45
+    }
+  ]
+}

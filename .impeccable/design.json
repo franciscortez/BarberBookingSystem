@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-30T03:38:12.187Z",
+  "title": "Design System: Gentlemen’s Quarters landing",
+  "extensions": {
+    "shadows": [],
+    "motion": [
+      {
+        "name": "control-transition",
+        "value": "180ms ease-out",
+        "purpose": "Hover and pressed feedback, disabled under reduced motion."
+      },
+      {
+        "name": "hero-intro",
+        "value": "650ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Already-visible hero moves upward 12px; omitted under reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "768px"
+      },
+      {
+        "name": "desktop-navigation",
+        "value": "1024px"
+      },
+      {
+        "name": "wide-gutters",
+        "value": "1200px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary booking action.",
+      "html": "<button class=\"ds-primary\">Book Now</button>",
+      "css": ".ds-primary{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:13px 27px;border:1px solid transparent;border-radius:6px;background:#e9c46a;color:#141414;font:700 14px Manrope,sans-serif;transition:background-color 180ms ease-out,transform 180ms ease-out}.ds-primary:hover{background:#f5d383}.ds-primary:active{transform:translateY(1px)}.ds-primary:focus-visible{outline:2px solid #e9c46a;outline-offset:5px}@media(prefers-reduced-motion:reduce){.ds-primary{transition:none}}"
+    },
+    {
+      "name": "Outline button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary service exploration.",
+      "html": "<button class=\"ds-outline\">View Services</button>",
+      "css": ".ds-outline{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:13px 27px;border:1px solid #8b8b83;border-radius:6px;background:transparent;color:#f3f1eb;font:700 14px Manrope,sans-serif;transition:background-color 180ms ease-out,transform 180ms ease-out}.ds-outline:hover{background:#202020;border-color:#f3f1eb}.ds-outline:active{transform:translateY(1px)}.ds-outline:focus-visible{outline:2px solid #e9c46a;outline-offset:5px}@media(prefers-reduced-motion:reduce){.ds-outline{transition:none}}"
+    },
+    {
+      "name": "Service disclosure",
+      "kind": "custom",
+      "description": "Native expandable per-barber pricing; sample content.",
+      "html": "<details class=\"ds-service\"><summary>Haircut <span>Sample price: ₱400.00</span></summary><p>Sample details: 30 min · ₱100.00 downpayment</p></details>",
+      "css": ".ds-service{color:#f3f1eb;background:#141414;border-bottom:1px solid #383833;font:14px Manrope,sans-serif}.ds-service summary{cursor:pointer;padding:24px 0;min-height:44px}.ds-service summary span{color:#e9c46a;margin-left:24px}.ds-service summary:hover{color:#e9c46a}.ds-service summary:focus-visible{outline:2px solid #e9c46a;outline-offset:5px}.ds-service p{padding:0 0 24px;color:#b8b6b0}"
+    },
+    {
+      "name": "Navigation",
+      "kind": "nav",
+      "description": "Existing anchor vocabulary in a compact dark header.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Sample navigation\"><a href=\"#home\">Home</a><a href=\"#services\">Services</a><a href=\"#team\">Team</a></nav>",
+      "css": ".ds-nav{display:flex;gap:30px;background:#141414;flex-wrap:wrap}.ds-nav a{display:inline-flex;align-items:center;min-height:44px;color:#b8b6b0;font:500 13px Manrope,sans-serif;text-decoration:none}.ds-nav a:hover{color:#f3f1eb}.ds-nav a:focus-visible{outline:2px solid #e9c46a;outline-offset:5px}"
+    },
+    {
+      "name": "Roster booking link",
+      "kind": "custom",
+      "description": "Preview action opens real booking without a demo ID.",
+      "html": "<a class=\"ds-roster-link\" href=\"/book\">Book Now</a>",
+      "css": ".ds-roster-link{display:inline-flex;align-items:center;min-height:44px;color:#e9c46a;background:#141414;font:600 13px Manrope,sans-serif;text-decoration:none}.ds-roster-link:hover{text-decoration:underline;text-underline-offset:5px}.ds-roster-link:focus-visible{outline:2px solid #e9c46a;outline-offset:5px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Time well spent",
+    "overview": "This system is scoped to the landing page at /. It pairs an empty-chair photographic hero with condensed display type, spacious service rows, a portrait-free roster, and clear booking actions. Booking, authentication, and staff screens retain their existing system.",
+    "keyCharacteristics": [
+      "Dark editorial surfaces with one amber accent.",
+      "Large, readable typography and photographic material.",
+      "Minimal borders, native disclosures, and useful motion."
+    ],
+    "rules": [],
+    "dos": [
+      "Do preserve the existing brand name and logo.",
+      "Do label demonstration prices, roster entries, and illustrative imagery.",
+      "Do keep landing styles scoped and real booking data authoritative.",
+      "Do test desktop and mobile browser behavior before claiming visual acceptance."
+    ],
+    "donts": [
+      "Don't generate barber portraits or fabricate reviews, awards, or biographies.",
+      "Don't pass demonstration IDs into the live booking funnel.",
+      "Don't add glow effects, gradient text, or repeated feature-card scaffolding."
+    ]
+  }
+}
