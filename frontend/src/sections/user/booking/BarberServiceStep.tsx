@@ -24,8 +24,8 @@ const BarberServiceStep = (props: Props) => (
     <p className="task-muted">
       Select a barber, or choose a service to select its barber.
     </p>
-    <div className="booking-choices">
-      <fieldset className="booking-choice-group">
+    <div className="booking-choices items-start">
+      <fieldset className="booking-choice-group md:sticky md:top-6 md:self-start">
         <legend>Barber</legend>
         <div className="booking-choice-list" aria-busy={props.loadingBarbers}>
           {props.loadingBarbers ? (
